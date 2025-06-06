@@ -1,57 +1,66 @@
-// ✅ Replace with your actual Supabase project URL and anon key
+// ✅ Replace with your actual Supabase credentials
 const SUPABASE_URL = 'https://dkcgowmksvqucxxlnmlr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrY2dvd21rc3ZxdWN4eGxubWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMDkyMjMsImV4cCI6MjA2NDc4NTIyM30.dRQH8kQi5LFx5JD1AeUPOILBbVXmiWjX9zB2K4U92-Y';
+// ✅ Create Supabase client
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ✅ Grab elements
+const nameForm = document.getElementById('name-form');
+const nameInput = document.getElementById('name-input');
+const nameList = document.getElementById('name-list');
 
-// Elements
-const form = document.getElementById('name-form');
-const input = document.getElementById('name-input');
-const list = document.getElementById('name-list');
+// ✅ Fetch and display all names
+async function fetchNames() {
+  const { data, error } = await supabase
+    .from('names')
+    .select('*')
+    .order('id', { ascending: true });
 
-// Fetch and show names
-async function loadNames() {
-  const { data, error } = await client.from('names').select('*').order('id');
   if (error) {
-    console.error('Fetch error:', error.message);
+    console.error('Error fetching names:', error);
     return;
   }
-  list.innerHTML = '';
-  data.forEach(item => {
+
+  nameList.innerHTML = '';
+
+  data.forEach(entry => {
     const li = document.createElement('li');
-    li.textContent = item.name;
-    li.onclick = () => deleteName(item.id);
-    list.appendChild(li);
+    li.textContent = entry.name;
+    li.style.padding = '0.5rem';
+    li.style.borderBottom = '1px solid #333';
+    li.style.cursor = 'pointer';
+    li.onclick = () => removeName(entry.id);
+    nameList.appendChild(li);
   });
 }
 
-// Add name
+// ✅ Add a new name
 async function addName(name) {
-  const { error } = await client.from('names').insert([{ name }]);
+  const { error } = await supabase.from('names').insert([{ name }]);
   if (error) {
-    console.error('Insert error:', error.message);
+    console.error('Error adding name:', error);
     return;
   }
-  input.value = '';
-  loadNames();
+  nameInput.value = '';
+  fetchNames();
 }
 
-// Delete name
-async function deleteName(id) {
-  const { error } = await client.from('names').delete().eq('id', id);
+// ✅ Remove a name by ID
+async function removeName(id) {
+  const { error } = await supabase.from('names').delete().eq('id', id);
   if (error) {
-    console.error('Delete error:', error.message);
+    console.error('Error deleting name:', error);
     return;
   }
-  loadNames();
+  fetchNames();
 }
 
-// Form submit
-form.onsubmit = (e) => {
+// ✅ Handle form submission
+nameForm.onsubmit = (e) => {
   e.preventDefault();
-  const name = input.value.trim();
+  const name = nameInput.value.trim();
   if (name) addName(name);
 };
 
-// Load names on page load
-loadNames();
+// ✅ Initial load
+fetchNames();

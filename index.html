@@ -2,82 +2,51 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sunday Soccer Match</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#000000" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css" />
-  <meta name="theme-color" content="#121212" />
-  <style>
-    body {
-      font-family: sans-serif;
-      background-color: #121212;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem;
-    }
+  <title>Sunday Soccer Match</title>
 
-    h1 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-    }
-
-    form {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-
-    input {
-      padding: 0.5rem;
-      border-radius: 5px;
-      border: none;
-      outline: none;
-      width: 200px;
-    }
-
-    button {
-      padding: 0.5rem 1rem;
-      background-color: #1e88e5;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    ul {
-      list-style-type: decimal;
-      padding-left: 1rem;
-      width: 100%;
-      max-width: 300px;
-    }
-
-    li {
-      margin: 0.5rem 0;
-      cursor: pointer;
-      background: #333;
-      padding: 0.5rem;
-      border-radius: 4px;
-    }
-
-    li:hover {
-      background-color: #444;
-    }
-  </style>
+  <!-- ✅ Supabase JS CDN v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-  <h1>Who's Playing Today? ⚽</h1>
-  <form id="name-form">
-    <input type="text" id="name-input" placeholder="Your name" required />
-    <button type="submit">Add</button>
+<body style="background:#111; color:#fff; font-family:sans-serif; margin:0; padding:2rem;">
+
+  <h1 style="text-align:center;">⚽ Sunday Soccer Match</h1>
+
+  <!-- ✅ Form to Add Name -->
+  <form id="name-form" style="display:flex; gap:1rem; margin-bottom:1.5rem;">
+    <input 
+      id="name-input" 
+      type="text" 
+      placeholder="Enter your name"
+      required
+      style="flex:1; padding:0.5rem; border-radius:8px; border:none; font-size:1rem;" />
+    <button 
+      type="submit" 
+      style="padding:0.5rem 1rem; background:#0f0; border:none; border-radius:8px; font-weight:bold;">
+      Add
+    </button>
   </form>
 
-  <ul id="name-list">
+  <!-- ✅ List of Names -->
+  <ul id="name-list" style="list-style:none; padding:0;">
     <!-- Names will appear here -->
   </ul>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <!-- ✅ Info -->
+  <p style="font-size:0.9rem; color:#aaa;">Tap a name to remove it.</p>
+
+  <!-- ✅ Main Script -->
   <script src="app.js"></script>
+
+  <!-- ✅ Register service worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log('Service Worker registered ✅'));
+    }
+  </script>
+
 </body>
 </html>
