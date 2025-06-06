@@ -1,12 +1,17 @@
+// Skip waiting during installation
 self.addEventListener('install', event => {
-  console.log('Service Worker installing.');
-  self.skipWaiting();
+  event.waitUntil(self.skipWaiting());
+  console.log('Service Worker installed');
 });
 
+// Claim clients immediately during activation
 self.addEventListener('activate', event => {
-  console.log('Service Worker activating.');
+  event.waitUntil(self.clients.claim());
+  console.log('Service Worker activated');
 });
 
+// Bypass cache for all network requests
 self.addEventListener('fetch', event => {
-  // You can add caching logic here if needed
+  // Always fetch from network, don't cache
+  event.respondWith(fetch(event.request));
 });

@@ -1,27 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#000000" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
   <title>Sunday Soccer Match</title>
-  <meta name="description" content="Add your name if you're playing! ⚽" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="icon.png" />
-  <meta name="apple-mobile-web-app-title" content="SoccerMatch" />
+  <meta name="description" content="Add your name if you're playing! ⚽">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-title" content="SoccerMatch">
   
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
-  <style>
-    :root {
-      --primary: #4CAF50;
-      --error: #f44336;
-    }
-  </style>
 </head>
 <body>
   <div class="container">
@@ -34,7 +27,8 @@
         placeholder="Enter your name"
         aria-label="Your name"
         required
-      />
+        autocomplete="off"
+      >
       <button type="submit">Add</button>
     </form>
     
@@ -50,17 +44,29 @@
   <script>
     // Register service worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('SW registered:', reg))
-        .catch(err => console.error('SW registration failed:', err));
+      // Unregister any existing workers first
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const registration of registrations) {
+          registration.unregister();
+          console.log('Unregistered old service worker');
+        }
+        
+        // Register new worker
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => {
+            console.log('Service Worker registered:', reg);
+            reg.update(); // Force update
+          })
+          .catch(err => console.error('Service Worker registration failed:', err));
+      });
     }
     
-    // Prevent form submission on Enter key
-    document.addEventListener('keydown', e => {
-      if (e.target.id === 'name-input' && e.key === 'Enter') {
-        e.preventDefault();
-        document.querySelector('button[type="submit"]').click();
-      }
+    // Force refresh cache
+    caches.keys().then(cacheNames => {
+      cacheNames.forEach(cacheName => {
+        caches.delete(cacheName);
+        console.log('Deleted cache:', cacheName);
+      });
     });
   </script>
 </body>
