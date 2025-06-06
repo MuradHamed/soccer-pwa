@@ -6,15 +6,12 @@
   <meta name="theme-color" content="#000000" />
   <link rel="manifest" href="manifest.json" />
   <title>Sunday Soccer Match</title>
-
-  <!-- ✅ Supabase JS CDN v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body style="background:#111; color:#fff; font-family:sans-serif; margin:0; padding:2rem;">
 
   <h1 style="text-align:center;">⚽ Sunday Soccer Match</h1>
 
-  <!-- ✅ Form to Add Name -->
   <form id="name-form" style="display:flex; gap:1rem; margin-bottom:1.5rem;">
     <input 
       id="name-input" 
@@ -29,24 +26,17 @@
     </button>
   </form>
 
-  <!-- ✅ List of Names -->
-  <ul id="name-list" style="list-style:none; padding:0;">
-    <!-- Names will appear here -->
-  </ul>
+  <ul id="name-list" style="list-style:none; padding:0;"></ul>
 
-  <!-- ✅ Info -->
   <p style="font-size:0.9rem; color:#aaa;">Tap a name to remove it.</p>
 
-  <!-- ✅ Main Script -->
   <script src="app.js"></script>
 
-  <!-- ✅ Register service worker -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
         .then(() => console.log('Service Worker registered ✅'));
     }
   </script>
-
 </body>
 </html>
