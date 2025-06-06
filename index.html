@@ -3,18 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#000000">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
   <title>Sunday Soccer Match</title>
-  <meta name="description" content="Add your name if you're playing! ⚽">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="icon.png">
-  <meta name="apple-mobile-web-app-title" content="SoccerMatch">
+  <meta name="theme-color" content="#111">
+  <meta name="mobile-web-app-capable" content="yes">
   
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #111;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin: 1rem 0 2rem;
+      font-size: 2rem;
+    }
+
+    #name-form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    #name-input {
+      flex: 1;
+      padding: 12px 15px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #222;
+      color: white;
+      transition: border-color 0.3s;
+    }
+
+    #name-input:focus {
+      border-color: #4CAF50;
+      outline: none;
+    }
+
+    button {
+      padding: 12px 20px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+
+    .message {
+      display: none;
+      padding: 10px;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    #name-list {
+      list-style: none;
+      margin: 2rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #1a1a1a;
+      border: 1px solid #333;
+    }
+
+    .name-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid #333;
+      transition: background 0.2s;
+    }
+
+    .name-item:last-child {
+      border-bottom: none;
+    }
+
+    .name-item:hover {
+      background: #222;
+    }
+
+    .delete-btn {
+      background: #f44336;
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      cursor: pointer;
+      border: none;
+    }
+
+    .delete-btn:hover {
+      background: #d32f2f;
+    }
+
+    .hint {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .empty {
+      color: #aaa;
+      text-align: center;
+      padding: 1rem;
+      font-style: italic;
+    }
+
+    .loading {
+      text-align: center;
+      color: #888;
+      padding: 1rem;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -25,48 +163,188 @@
         id="name-input" 
         type="text" 
         placeholder="Enter your name"
-        aria-label="Your name"
         required
-        autocomplete="off"
-      >
-      <button type="submit">Add</button>
+      />
+      <button type="submit" id="add-btn">Add</button>
     </form>
     
     <div id="message" class="message"></div>
     
-    <ul id="name-list"></ul>
+    <ul id="name-list">
+      <li class="loading">Loading...</li>
+    </ul>
     
     <p class="hint">Tap × to remove a name</p>
   </div>
   
-  <script src="app.js"></script>
-  
   <script>
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      // Unregister any existing workers first
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (const registration of registrations) {
-          registration.unregister();
-          console.log('Unregistered old service worker');
+    // Supabase configuration
+    const SUPABASE_URL = 'https://rqpcxbzfvufekaihnmct.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcGN4YnpmdnVmZWthaWhubWN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMzA4NTAsImV4cCI6MjA2NDgwNjg1MH0.mo6COppydSth-qsLGmREFP1yETVpGH1f3CBXbhKDs4M';
+
+    // DOM elements
+    const nameForm = document.getElementById('name-form');
+    const nameInput = document.getElementById('name-input');
+    const nameList = document.getElementById('name-list');
+    const messageDiv = document.getElementById('message');
+    const addBtn = document.getElementById('add-btn');
+
+    // Initialize Supabase
+    let supabase;
+    try {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch (error) {
+      console.error('Failed to initialize Supabase:', error);
+      showMessage('Database connection failed', true);
+    }
+
+    // Show status message
+    function showMessage(text, isError = false) {
+      messageDiv.textContent = text;
+      messageDiv.style.backgroundColor = isError ? '#f44336' : '#4CAF50';
+      messageDiv.style.color = 'white';
+      messageDiv.style.display = 'block';
+      
+      setTimeout(() => {
+        messageDiv.style.display = 'none';
+      }, 3000);
+    }
+
+    // Load names from database
+    async function loadNames() {
+      try {
+        const { data, error } = await supabase
+          .from('names')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          console.error('Supabase error:', error);
+          nameList.innerHTML = '<li class="empty">Error loading players. Check database setup.</li>';
+          showMessage(`Database error: ${error.message}`, true);
+          return;
+        }
+
+        nameList.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+          nameList.innerHTML = '<li class="empty">No players yet - be the first to join!</li>';
+          return;
+        }
+
+        data.forEach(entry => {
+          const li = document.createElement('li');
+          li.className = 'name-item';
+          li.innerHTML = `
+            <span>${entry.name}</span>
+            <button class="delete-btn" onclick="deleteName(${entry.id})" title="Remove player">×</button>
+          `;
+          nameList.appendChild(li);
+        });
+        
+      } catch (error) {
+        console.error('Network error:', error);
+        nameList.innerHTML = '<li class="empty">Connection error. Please try again.</li>';
+        showMessage('Connection error', true);
+      }
+    }
+
+    // Add new name
+    async function addName(name) {
+      if (!supabase) {
+        showMessage('Database not connected', true);
+        return;
+      }
+
+      try {
+        addBtn.disabled = true;
+        addBtn.textContent = 'Adding...';
+        
+        const { error } = await supabase
+          .from('names')
+          .insert([{ name: name }]);
+        
+        if (error) {
+          console.error('Insert error:', error);
+          showMessage(`Error: ${error.message}`, true);
+          return;
         }
         
-        // Register new worker
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => {
-            console.log('Service Worker registered:', reg);
-            reg.update(); // Force update
-          })
-          .catch(err => console.error('Service Worker registration failed:', err));
-      });
+        nameInput.value = '';
+        showMessage('Player added!');
+        await loadNames();
+        
+      } catch (error) {
+        console.error('Add error:', error);
+        showMessage('Failed to add player', true);
+      } finally {
+        addBtn.disabled = false;
+        addBtn.textContent = 'Add';
+      }
     }
-    
-    // Force refresh cache
-    caches.keys().then(cacheNames => {
-      cacheNames.forEach(cacheName => {
-        caches.delete(cacheName);
-        console.log('Deleted cache:', cacheName);
-      });
+
+    // Delete name (global function for onclick)
+    window.deleteName = async function(id) {
+      if (!supabase) {
+        showMessage('Database not connected', true);
+        return;
+      }
+
+      try {
+        const { error } = await supabase
+          .from('names')
+          .delete()
+          .eq('id', id);
+        
+        if (error) {
+          console.error('Delete error:', error);
+          showMessage(`Error: ${error.message}`, true);
+          return;
+        }
+        
+        showMessage('Player removed');
+        await loadNames();
+        
+      } catch (error) {
+        console.error('Delete error:', error);
+        showMessage('Failed to remove player', true);
+      }
+    };
+
+    // Handle form submission
+    nameForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      
+      if (!name) {
+        showMessage('Please enter a name', true);
+        return;
+      }
+      
+      if (name.length > 50) {
+        showMessage('Name too long (max 50 characters)', true);
+        return;
+      }
+      
+      await addName(name);
+    });
+
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('⚽ Soccer Match App Started');
+      
+      if (supabase) {
+        await loadNames();
+      } else {
+        nameList.innerHTML = '<li class="empty">Database connection failed</li>';
+      }
+    });
+
+    // Handle input focus for better mobile experience
+    nameInput.addEventListener('focus', () => {
+      setTimeout(() => {
+        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
     });
   </script>
 </body>
