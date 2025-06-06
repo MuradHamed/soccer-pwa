@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simple Name List PWA</title>
+  <link rel="manifest" href="manifest.json"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <h1>🌟 Name List</h1>
+  <form id="nameForm">
+    <input type="text" id="nameInput" placeholder="Enter your name" required />
+    <button type="submit">Add</button>
+  </form>
+  <ul id="nameList"></ul>
+</body>
+</html>
