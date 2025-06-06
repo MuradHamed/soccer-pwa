@@ -1,6 +1,6 @@
-// Supabase setup
-const SUPABASE_URL = 'https://dkcgowmksvqucxxlnmlr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrY2dvd21rc3ZxdWN4eGxubWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMDkyMjMsImV4cCI6MjA2NDc4NTIyM30.dRQH8kQi5LFx5JD1AeUPOILBbVXmiWjX9zB2K4U92-Y';
+// Supabase setup (REPLACE WITH YOUR CREDENTIALS)
+const SUPABASE_URL = 'https://ovcpeftepbrnlxghitjz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92Y3BlZnRlcGJybmx4Z2hpdGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMTkwNzksImV4cCI6MjA2NDc5NTA3OX0.5bgDMYM26Cerogd4p6NBn_H_BvO4XFPyxchlmuqzrDY';
 
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -33,11 +33,12 @@ async function loadNames() {
     
     if (error) {
       showMessage('Error loading names: ' + error.message, true);
+      console.error('Supabase error:', error);
       return;
     }
 
     if (data.length === 0) {
-      nameList.innerHTML = '<li style="color:#aaa; text-align:center;">No players yet</li>';
+      nameList.innerHTML = '<li class="empty">No players yet</li>';
       return;
     }
 
@@ -61,6 +62,7 @@ async function loadNames() {
     
   } catch (error) {
     showMessage('Unexpected error: ' + error.message, true);
+    console.error('Catch error:', error);
   }
 }
 
@@ -73,6 +75,7 @@ async function addName(name) {
     
     if (error) {
       showMessage('Error adding name: ' + error.message, true);
+      console.error('Insert error:', error);
       return;
     }
     
@@ -81,6 +84,7 @@ async function addName(name) {
     loadNames();
   } catch (error) {
     showMessage('Error adding name: ' + error.message, true);
+    console.error('Catch error:', error);
   }
 }
 
@@ -94,6 +98,7 @@ async function deleteName(id) {
     
     if (error) {
       showMessage('Error deleting name: ' + error.message, true);
+      console.error('Delete error:', error);
       return;
     }
     
@@ -101,6 +106,7 @@ async function deleteName(id) {
     loadNames();
   } catch (error) {
     showMessage('Error deleting name: ' + error.message, true);
+    console.error('Catch error:', error);
   }
 }
 
@@ -117,4 +123,15 @@ nameForm.addEventListener('submit', (e) => {
 });
 
 // Initial load
-document.addEventListener('DOMContentLoaded', loadNames);
+document.addEventListener('DOMContentLoaded', () => {
+  loadNames();
+  
+  // Add debug info
+  console.log('Supabase initialized:', SUPABASE_URL);
+  supabase
+    .from('names')
+    .select('*', { count: 'exact' })
+    .then(({ count }) => {
+      console.log(`Database connection successful. ${count} names in database`);
+    });
+});

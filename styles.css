@@ -33,11 +33,17 @@ h1 {
 #name-input {
   flex: 1;
   padding: 12px 15px;
-  border: none;
+  border: 2px solid #333;
   border-radius: 8px;
   font-size: 1rem;
   background: #222;
   color: white;
+  transition: border-color 0.3s;
+}
+
+#name-input:focus {
+  border-color: #4CAF50;
+  outline: none;
 }
 
 button {
@@ -61,6 +67,7 @@ button:hover {
   margin-bottom: 1rem;
   border-radius: 4px;
   text-align: center;
+  font-weight: bold;
 }
 
 #name-list {
@@ -68,6 +75,8 @@ button:hover {
   margin: 2rem 0;
   border-radius: 8px;
   overflow: hidden;
+  background: #1a1a1a;
+  border: 1px solid #333;
 }
 
 .name-item {
@@ -75,7 +84,6 @@ button:hover {
   justify-content: space-between;
   align-items: center;
   padding: 14px 20px;
-  background: #1a1a1a;
   border-bottom: 1px solid #333;
   transition: background 0.2s;
 }
@@ -98,6 +106,9 @@ button:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.2rem;
+  cursor: pointer;
+  border: none;
 }
 
 .delete-btn:hover {
@@ -109,4 +120,11 @@ button:hover {
   color: #aaa;
   font-size: 0.9rem;
   margin-top: 1rem;
+}
+
+.empty {
+  color: #aaa;
+  text-align: center;
+  padding: 1rem;
+  font-style: italic;
 }
