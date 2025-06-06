@@ -4,8 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sunday Soccer Match</title>
-  <meta name="theme-color" content="#111">
+  <meta name="theme-color" content="#4CAF50">
   <meta name="mobile-web-app-capable" content="yes">
+  
+  <!-- PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="تاكيد للعب">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlN1bmRheSBTb2NjZXIgTWF0Y2giLAogICJzaG9ydF9uYW1lIjogItin2YPZitivINmE2YTYudioIiwKICAiZGVzY3JpcHRpb24iOiAiU2lnbiB1cCBmb3Igb3VyIHdlZWtseSBzb2NjZXIgbWF0Y2giLAogICJzdGFydF91cmwiOiAiLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzExMSIsCiAgInRoZW1lX2NvbG9yIjogIiM0Q0FGNTAIR5=">";
+  
+  <!-- App Icons -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9IiM0Q0FGNTAIR5="BMQUUiLz4KPHBhdGggZD0iTTMyIDEwQzE5LjkgMTAgMTAgMTkuOSAxMCAzMkMxMCA0NC4xIDE5LjkgNTQgMzIgNTRDNDQuMSA1NCA1NCA0NC4xIDU0IDMyQzU0IDE5LjkgNDQuMSAxMCAzMiAxMFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0yMCAyNEMxOS40IDI0IDE5IDI0LjQgMTkgMjVWMzlDMTkgMzkuNiAxOS40IDQwIDIwIDQwSDQ0QzQ0LjYgNDAgNDUgMzkuNiA0NSAzOVYyNUM0NSAyNC40IDQ0LjYgMjQgNDQgMjRIMjBaIiBmaWxsPSIjNENBRjUwIi8+CjxwYXRoIGQ9Ik0zMiAxOEM0MS45IDE4IDUwIDI2LjEgNTAgMzZDNTAgNDUuOSA0MS45IDU0IDMyIDU0QzIyLjEgNTQgMTQgNDUuOSAxNCAzNkMxNCAyNi4xIDIyLjEgMTggMzIgMThaIiBzdHJva2U9IiM0Q0FGNTAIR5="QkFGNTAiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyNiIgY3k9IjMwIiByPSIzIiBmaWxsPSIjNENBRjUwIi8+CjxjaXJjbGUgY3g9IjM4IiBjeT0iMzAiIHI9IjMiIGZpbGw9IiM0Q0FGNTAIR5="Ii8+CjxjaXJjbGUgY3g9IjMyIiBjeT0iNDIiIHI9IjMiIGZpbGw9IiM0Q0FGNTAIR5="Ii8+Cjwvc3ZnPgo=">
+  <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIiByeD0iMzAiIGZpbGw9IiM0Q0FGNTAIR5="QkFGNTAiLz4KPGNpcmNsZSBjeD0iOTAiIGN5PSI5MCIgcj0iNzAiIGZpbGw9IndoaXRlIi8+CjxjaXJjbGUgY3g9IjkwIiBjeT0iOTAiIHI9IjYwIiBzdHJva2U9IiM0Q0FGNTAIR5="QkFGNTAiIHN0cm9rZS13aWR0aD0iNCIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSI3MCIgY3k9Ijc1IiByPSI4IiBmaWxsPSIjNENBRjUwIi8+CjxjaXJjbGUgY3g9IjExMCIgY3k9Ijc1IiByPSI4IiBmaWxsPSIjNENBRjUwIi8+CjxjaXJjbGUgY3g9IjkwIiBjeT0iMTEwIiByPSI4IiBmaWxsPSIjNENBRjUwIi8+CjxwYXRoIGQ9Ik00NSA0NUMzNS40IDQ1IDI3LjUgNTIuOSAyNy41IDYyLjVWMTE3LjVDMjcuNSAxMjcuMSAzNS40IDEzNSA0NSAxMzVIMTM1QzE0NC42IDEzNSAxNTIuNSAxMjcuMSAxNTIuNSAxMTcuNVY2Mi41QzE1Mi41IDUyLjkgMTQ0LjYgNDUgMTM1IDQ1SDQ1WiIgZmlsbD0iIzRDQUY1MCIgZmlsbC1vcGFjaXR5PSIwLjIiLz4KPC9zdmc+Cg==">
   
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
