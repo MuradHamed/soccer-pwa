@@ -8,58 +8,113 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const nameForm = document.getElementById('name-form');
 const nameInput = document.getElementById('name-input');
 const nameList = document.getElementById('name-list');
+const messageDiv = document.getElementById('message');
+
+// Show status message
+function showMessage(text, isError = false) {
+  messageDiv.textContent = text;
+  messageDiv.style.color = isError ? '#ff5555' : '#0f0';
+  messageDiv.style.display = 'block';
+  
+  setTimeout(() => {
+    messageDiv.style.display = 'none';
+  }, 3000);
+}
 
 // Load names
 async function loadNames() {
-  const { data, error } = await supabase
-    .from('names')
-    .select('*')
-    .order('id', { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from('names')
+      .select('*')
+      .order('created_at', { ascending: true });
 
-  nameList.innerHTML = '';
-  if (error) {
-    console.error('Fetch error:', error.message);
-    return;
+    nameList.innerHTML = '';
+    
+    if (error) {
+      showMessage('Error loading names: ' + error.message, true);
+      return;
+    }
+
+    if (data.length === 0) {
+      nameList.innerHTML = '<li style="color:#aaa; text-align:center;">No players yet</li>';
+      return;
+    }
+
+    data.forEach(entry => {
+      const li = document.createElement('li');
+      li.className = 'name-item';
+      li.innerHTML = `
+        ${entry.name}
+        <button class="delete-btn" data-id="${entry.id}">×</button>
+      `;
+      nameList.appendChild(li);
+    });
+    
+    // Add event listeners to delete buttons
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteName(btn.dataset.id);
+      });
+    });
+    
+  } catch (error) {
+    showMessage('Unexpected error: ' + error.message, true);
   }
-
-  data.forEach(entry => {
-    const li = document.createElement('li');
-    li.textContent = entry.name;
-    li.style.padding = '0.5rem';
-    li.style.borderBottom = '1px solid #333';
-    li.style.cursor = 'pointer';
-    li.onclick = () => deleteName(entry.id);
-    nameList.appendChild(li);
-  });
 }
 
 // Add name
 async function addName(name) {
-  const { error } = await supabase.from('names').insert([{ name }]);
-  if (error) {
-    console.error('Insert error:', error.message);
-    return;
+  try {
+    const { error } = await supabase
+      .from('names')
+      .insert([{ name }]);
+    
+    if (error) {
+      showMessage('Error adding name: ' + error.message, true);
+      return;
+    }
+    
+    nameInput.value = '';
+    showMessage('Name added successfully!');
+    loadNames();
+  } catch (error) {
+    showMessage('Error adding name: ' + error.message, true);
   }
-  nameInput.value = '';
-  loadNames();
 }
 
 // Delete name
 async function deleteName(id) {
-  const { error } = await supabase.from('names').delete().eq('id', id);
-  if (error) {
-    console.error('Delete error:', error.message);
-    return;
+  try {
+    const { error } = await supabase
+      .from('names')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      showMessage('Error deleting name: ' + error.message, true);
+      return;
+    }
+    
+    showMessage('Name removed');
+    loadNames();
+  } catch (error) {
+    showMessage('Error deleting name: ' + error.message, true);
   }
-  loadNames();
 }
 
 // Handle form submit
-nameForm.onsubmit = (e) => {
+nameForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const name = nameInput.value.trim();
-  if (name) addName(name);
-};
+  
+  if (name) {
+    addName(name);
+  } else {
+    showMessage('Please enter a name', true);
+  }
+});
 
 // Initial load
-loadNames();
+document.addEventListener('DOMContentLoaded', loadNames);

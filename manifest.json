@@ -1,15 +1,16 @@
 {
   "name": "Sunday Soccer Match",
   "short_name": "Soccer",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#111111",
+  "theme_color": "#111111",
   "icons": [
     {
       "src": "icon.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ]
 }

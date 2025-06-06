@@ -12,43 +12,56 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="icon.png" />
   <meta name="apple-mobile-web-app-title" content="SoccerMatch" />
-
-  <!-- ✅ Supabase CDN -->
+  
+  <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    :root {
+      --primary: #4CAF50;
+      --error: #f44336;
+    }
+  </style>
 </head>
-<body style="background:#111; color:#fff; font-family:sans-serif; margin:0; padding:2rem;">
-
-  <h1 style="text-align:center;">⚽ Sunday Soccer Match</h1>
-
-  <!-- ✅ Add name form -->
-  <form id="name-form" style="display:flex; gap:1rem; margin-bottom:1.5rem;">
-    <input 
-      id="name-input" 
-      type="text" 
-      placeholder="Enter your name"
-      required
-      style="flex:1; padding:0.5rem; border-radius:8px; border:none; font-size:1rem;" />
-    <button 
-      type="submit" 
-      style="padding:0.5rem 1rem; background:#0f0; border:none; border-radius:8px; font-weight:bold;">
-      Add
-    </button>
-  </form>
-
-  <!-- ✅ Name list -->
-  <ul id="name-list" style="list-style:none; padding:0;"></ul>
-
-  <p style="font-size:0.9rem; color:#aaa;">Tap a name to remove it.</p>
-
-  <!-- ✅ App logic -->
+<body>
+  <div class="container">
+    <h1>⚽ Sunday Soccer Match</h1>
+    
+    <form id="name-form">
+      <input 
+        id="name-input" 
+        type="text" 
+        placeholder="Enter your name"
+        aria-label="Your name"
+        required
+      />
+      <button type="submit">Add</button>
+    </form>
+    
+    <div id="message" class="message"></div>
+    
+    <ul id="name-list"></ul>
+    
+    <p class="hint">Tap × to remove a name</p>
+  </div>
+  
   <script src="app.js"></script>
-
-  <!-- ✅ PWA Service Worker -->
+  
   <script>
+    // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
-        .then(() => console.log('Service Worker registered ✅'));
+        .then(reg => console.log('SW registered:', reg))
+        .catch(err => console.error('SW registration failed:', err));
     }
+    
+    // Prevent form submission on Enter key
+    document.addEventListener('keydown', e => {
+      if (e.target.id === 'name-input' && e.key === 'Enter') {
+        e.preventDefault();
+        document.querySelector('button[type="submit"]').click();
+      }
+    });
   </script>
 </body>
 </html>
