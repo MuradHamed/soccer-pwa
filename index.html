@@ -2,18 +2,74 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simple Name List PWA</title>
-  <link rel="manifest" href="manifest.json"/>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <script defer src="app.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soccer Name List</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#222222" />
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    form {
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      font-size: 16px;
+      width: 200px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background-color: #00c853;
+      color: white;
+      border-radius: 5px;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      padding: 10px;
+      margin: 5px 0;
+      background-color: #333;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    li:hover {
+      background-color: #444;
+    }
+  </style>
 </head>
 <body>
-  <h1>🌟 Name List</h1>
-  <form id="nameForm">
-    <input type="text" id="nameInput" placeholder="Enter your name" required />
-    <button type="submit">Add</button>
+  <h1>Who's In for Soccer?</h1>
+
+  <form id="name-form">
+    <input type="text" id="name-input" placeholder="Enter your name" required />
+    <button type="submit">Add Me</button>
   </form>
-  <ul id="nameList"></ul>
+
+  <ul id="name-list"></ul>
+
+  <!-- Supabase JS library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <!-- Your app logic -->
+  <script src="app.js"></script>
 </body>
 </html>
