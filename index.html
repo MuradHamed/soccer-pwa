@@ -5,13 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#000000" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
   <title>Sunday Soccer Match</title>
+  <meta name="description" content="Add your name if you're playing! ⚽" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <meta name="apple-mobile-web-app-title" content="SoccerMatch" />
+
+  <!-- ✅ Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body style="background:#111; color:#fff; font-family:sans-serif; margin:0; padding:2rem;">
 
   <h1 style="text-align:center;">⚽ Sunday Soccer Match</h1>
 
+  <!-- ✅ Add name form -->
   <form id="name-form" style="display:flex; gap:1rem; margin-bottom:1.5rem;">
     <input 
       id="name-input" 
@@ -26,12 +35,15 @@
     </button>
   </form>
 
+  <!-- ✅ Name list -->
   <ul id="name-list" style="list-style:none; padding:0;"></ul>
 
   <p style="font-size:0.9rem; color:#aaa;">Tap a name to remove it.</p>
 
+  <!-- ✅ App logic -->
   <script src="app.js"></script>
 
+  <!-- ✅ PWA Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
