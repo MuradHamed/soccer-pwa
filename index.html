@@ -2,53 +2,63 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Soccer Name List</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sunday Soccer Match</title>
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#222222" />
+  <link rel="stylesheet" href="style.css" />
+  <meta name="theme-color" content="#121212" />
   <style>
     body {
-      background-color: #111;
-      color: #fff;
       font-family: sans-serif;
-      text-align: center;
-      padding: 20px;
+      background-color: #121212;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     form {
-      margin-bottom: 20px;
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
     }
 
-    input[type="text"] {
-      padding: 10px;
+    input {
+      padding: 0.5rem;
       border-radius: 5px;
       border: none;
-      font-size: 16px;
+      outline: none;
       width: 200px;
     }
 
     button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      background-color: #00c853;
+      padding: 0.5rem 1rem;
+      background-color: #1e88e5;
       color: white;
+      border: none;
       border-radius: 5px;
-      margin-left: 10px;
       cursor: pointer;
     }
 
     ul {
-      list-style: none;
-      padding: 0;
+      list-style-type: decimal;
+      padding-left: 1rem;
+      width: 100%;
+      max-width: 300px;
     }
 
     li {
-      padding: 10px;
-      margin: 5px 0;
-      background-color: #333;
-      border-radius: 5px;
+      margin: 0.5rem 0;
       cursor: pointer;
+      background: #333;
+      padding: 0.5rem;
+      border-radius: 4px;
     }
 
     li:hover {
@@ -57,19 +67,17 @@
   </style>
 </head>
 <body>
-  <h1>Who's In for Soccer?</h1>
-
+  <h1>Who's Playing Today? ⚽</h1>
   <form id="name-form">
-    <input type="text" id="name-input" placeholder="Enter your name" required />
-    <button type="submit">Add Me</button>
+    <input type="text" id="name-input" placeholder="Your name" required />
+    <button type="submit">Add</button>
   </form>
 
-  <ul id="name-list"></ul>
+  <ul id="name-list">
+    <!-- Names will appear here -->
+  </ul>
 
-  <!-- Supabase JS library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-  <!-- Your app logic -->
   <script src="app.js"></script>
 </body>
 </html>
