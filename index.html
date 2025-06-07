@@ -1,364 +1,342 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sunday Soccer Match</title>
-  <meta name="theme-color" content="#4CAF50">
-  <meta name="mobile-web-app-capable" content="yes">
+import React, { createContext, useContext, useReducer, useState, useEffect } from 'react';
+
+// State Management with Context
+const AppContext = createContext();
+
+const initialState = {
+  players: [],
+  orangeTeam: [],
+  greenTeam: []
+};
+
+function appReducer(state, action) {
+  switch (action.type) {
+    case 'ADD_PLAYER':
+      return {
+        ...state,
+        players: [...state.players, { id: Date.now(), name: action.payload }]
+      };
+    case 'REMOVE_PLAYER':
+      return {
+        ...state,
+        players: state.players.filter(p => p.id !== action.payload),
+        orangeTeam: state.orangeTeam.filter(p => p.id !== action.payload),
+        greenTeam: state.greenTeam.filter(p => p.id !== action.payload)
+      };
+    case 'MOVE_TO_ORANGE':
+      const playerForOrange = state.players.find(p => p.id === action.payload);
+      if (!playerForOrange) return state;
+      return {
+        ...state,
+        orangeTeam: [...state.orangeTeam.filter(p => p.id !== action.payload), playerForOrange],
+        greenTeam: state.greenTeam.filter(p => p.id !== action.payload)
+      };
+    case 'MOVE_TO_GREEN':
+      const playerForGreen = state.players.find(p => p.id === action.payload);
+      if (!playerForGreen) return state;
+      return {
+        ...state,
+        greenTeam: [...state.greenTeam.filter(p => p.id !== action.payload), playerForGreen],
+        orangeTeam: state.orangeTeam.filter(p => p.id !== action.payload)
+      };
+    case 'REMOVE_FROM_TEAM':
+      return {
+        ...state,
+        orangeTeam: state.orangeTeam.filter(p => p.id !== action.payload),
+        greenTeam: state.greenTeam.filter(p => p.id !== action.payload)
+      };
+    default:
+      return state;
+  }
+}
+
+function AppProvider({ children }) {
+  const [state, dispatch] = useReducer(appReducer, initialState);
   
-  <!-- PWA Meta Tags -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="تاكيد للعب">
-  
-  <!-- PWA Manifest with proper icons -->
-  <link rel="manifest" id="app-manifest">
-  
-  <!-- App Icons - Multiple sizes for better compatibility -->
-  <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAEAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAAAQAABILAAASCwAAAAAAAAAAAAD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AHzKWWp8ylmq////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wB8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wD///8A////AP///wD///8AfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wD///8A////AHzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wB8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8AfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AHzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AHzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wB8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wD///8AfMpZqnzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wD///8A////AHzKWap8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wD///8A////AP///wB8ylmqfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wD///8A////AP///wD///8AfMpZqnzKWap8ylmqfMpZqnzKWap8ylmq////AP///wD///8A////AP///wD///8A////AP///wD///8A////AHzKWWp8ylmq////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8A">
-  <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,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">
-  <link rel="icon" sizes="192x192" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABx0RVh0U29mdHdhcmUAQWRvYmUgRmlyZXdvcmtzIENTNui8sowAAAkqSUREVR4nO3de4xV5RXH8e/ijCAOd1AY7iAXwQKCFgQFEUQRW6MxbWNi0zbWph3/sGma9s/+0T/axsTE2MZGm6ZJ0z/aJk3TxqaNtbVqrVKLoiAiKKBcBQGBuQ4zwwwzc2b1D+5k5p5zzn7t/e133u9kJTPn7N955/Dbd793Pe8+27gWhL1NZnYQmAVMByYCo4GRwDCgDegCeoBeoBM4DOwDdgO7nHM9sWqOPKNBF8DMmoD5wMXARcD5wBxgKtBc4Vd3ATuBzcCr2d+bnHOHKvxeqRMNug6MbRJwGbAEeGf2Nx6o9X+5dmA98BKwxjn3Wo1rEA80aA+MbSyVhQesBBYDI33V9BbHfgU4ALwIPOOcO+CrJimPBl1lxjYFuAG4EbgCGOK1oNO1Ay8BTwNPOOcO+i1HitagCzL2CcBtwE3A1Z7LKdd+4GfAL5xzu30XI+PT3wqVBG0p8FngVuqzzA+0AauAHxvbr5xzvX5LkpFS7FXAzD5tZj8xs9fNrNfMXCy/NrMHv5nlTvOeZm4Bz5nZ7Wb9Fh+lRlTtDM3MFgHfB671+v2eOcfqnOvJ2gM6M4n4FBzQ6bbAzO4GvkSyNkPa3g2sc8511LaQFhRU4oeDBrTZccADwL3UfieWBPfXf9Hb3uTqIZYGbXYR8ADwXo8f70urAzQ659oz+z/JFdJRZ9lJLGEXgXbLTCGvAb7uu5YEzAY+Y2z3ARsLtOBq0EGcyV8wZxnfHdOzVKVtI3Ajxm1LHMvLAQGb2rXUYM4kbtqn4fdTdP5gRXQY4yVfXCKz3lO5MzoJegH4InCVxz7qWDnwSWNbOdNYnglV1EDlGhGNvvqtJ1nwZmO70ln7PJ0wGfCo2wuuc855Pb8wMzOzJudc0W59KXLE0I5zrsfBrr5tLT7+3xMxb3i5oKC9MXlN5uwyT9lU5POCg8pJUq7Q3TA1YG4Jq4usKTKGjL5QKWaepGEp8OsqH8eI7MwdnZHbRLYaOrIlFWfQyK42rVepKXvjGDlcB8ypwXH0RdZE+JfaHEyQnJKdRh3Xxq5X8BnaU2N60VlD5LXKgH9pVOKHBh3QSaWOZE9GrSj44oNW5vphk9mmKoGd4s5k57O8Qb6PZPWTBFfCJhE5OTnxQAGZvaGHhJz7QsGZGaBBh3ZWgkO3+oytTlAYAWNIxNPF5RfStqh5JqgzL/BzgMiJPeJa2lCxEMhYMxJGJPGFCjqwVJ9WQsO0xKpKWJqfKHmQyTD6Ss4Qyg7l/MAzXcpRTR01OUklWqvSR/JZrKGYF5Fo0GESFjdlCTqoFmzJM3xS5kL7TmN7v8jqe5YxJvQfp9+u7QKzIifPRhQPVcY0z4Wr0KKj4e6qiOzsmqjgw7vVPNPU7dGgo1H8LF3CJ7IY+0YRjTamg45GaY/MfCR+IleYPJCqExhFNI1JXi6eFtdvTRl5ZuqgzjzMQnHi4ygfSZLHG4qHasU1T4sNrTGj4VGIRCa24gPZuaTaOZJO0iCyjTGipS0i+8YFNjKzJe7k9SBYP+BpjG
-  
-  <!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+  return (
+    <AppContext.Provider value={{ state, dispatch }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
 
-    body {
-      background: #111;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      padding: 20px;
-      min-height: 100vh;
-    }
+function useApp() {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
+  return context;
+}
 
-    .container {
-      max-width: 500px;
-      margin: 0 auto;
-    }
+// Components
+function NavBar() {
+  return (
+    <nav className="bg-gray-900 border-b border-gray-700 px-4 py-3">
+      <h1 className="text-white text-xl font-bold text-center">⚽ Soccer Teams</h1>
+    </nav>
+  );
+}
 
-    h1 {
-      text-align: center;
-      margin: 1rem 0 2rem;
-      font-size: 2rem;
-    }
+function TabBar({ activeTab, onTabChange }) {
+  return (
+    <div className="bg-gray-800 border-b border-gray-700">
+      <div className="flex">
+        <button 
+          onClick={() => onTabChange('add-remove')}
+          className={`flex-1 py-3 text-center font-medium transition-colors ${
+            activeTab === 'add-remove' 
+              ? 'text-blue-400 bg-gray-700 border-b-2 border-blue-400' 
+              : 'text-gray-300 hover:text-white hover:bg-gray-700'
+          }`}
+        >
+          Add / Remove
+        </button>
+        <button 
+          onClick={() => onTabChange('teams')}
+          className={`flex-1 py-3 text-center font-medium transition-colors ${
+            activeTab === 'teams' 
+              ? 'text-blue-400 bg-gray-700 border-b-2 border-blue-400' 
+              : 'text-gray-300 hover:text-white hover:bg-gray-700'
+          }`}
+        >
+          Teams
+        </button>
+      </div>
+    </div>
+  );
+}
 
-    #name-form {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 1.5rem;
-    }
+function AddRemoveTab() {
+  const { state, dispatch } = useApp();
+  const [inputValue, setInputValue] = useState('');
 
-    #name-input {
-      flex: 1;
-      padding: 12px 15px;
-      border: 2px solid #333;
-      border-radius: 8px;
-      font-size: 1rem;
-      background: #222;
-      color: white;
-      transition: border-color 0.3s;
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (inputValue.trim()) {
+      dispatch({ type: 'ADD_PLAYER', payload: inputValue.trim() });
+      setInputValue('');
     }
+  };
 
-    #name-input:focus {
-      border-color: #4CAF50;
-      outline: none;
-    }
+  const handleRemovePlayer = (id) => {
+    dispatch({ type: 'REMOVE_PLAYER', payload: id });
+  };
 
-    button {
-      padding: 12px 20px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.3s;
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSubmit(e);
     }
+  };
 
-    button:hover {
-      background: #45a049;
-    }
+  return (
+    <div className="p-4 max-w-md mx-auto">
+      <div className="mb-6">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Enter player name"
+            className="flex-1 px-4 py-3 bg-gray-800 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleSubmit}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Add
+          </button>
+        </div>
+      </div>
 
-    button:disabled {
-      background: #666;
-      cursor: not-allowed;
-    }
+      <div className="space-y-2">
+        <h2 className="text-white text-lg font-semibold mb-3">
+          Players ({state.players.length})
+        </h2>
+        {state.players.length === 0 ? (
+          <p className="text-gray-400 text-center py-8 italic">
+            No players yet. Add some names above!
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {state.players.map((player) => (
+              <div
+                key={player.id}
+                onClick={() => handleRemovePlayer(player.id)}
+                className="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-700 transition-colors"
+              >
+                <span className="text-white">{player.name}</span>
+                <span className="text-red-400 text-sm">Tap to remove</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-    .message {
-      display: none;
-      padding: 10px;
-      margin-bottom: 1rem;
-      border-radius: 4px;
-      text-align: center;
-      font-weight: bold;
-    }
+function DragDropTeam({ team, teamColor, onDrop, onRemove, title }) {
+  const [dragOver, setDragOver] = useState(false);
 
-    #name-list {
-      list-style: none;
-      margin: 2rem 0;
-      border-radius: 8px;
-      overflow: hidden;
-      background: #1a1a1a;
-      border: 1px solid #333;
-    }
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
 
-    .name-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 20px;
-      border-bottom: 1px solid #333;
-      transition: background 0.2s;
-    }
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
 
-    .name-item:last-child {
-      border-bottom: none;
-    }
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const playerId = parseInt(e.dataTransfer.getData('text/plain'));
+    onDrop(playerId);
+  };
 
-    .name-item:hover {
-      background: #222;
-    }
+  const colorClasses = {
+    orange: dragOver ? 'border-orange-300 bg-orange-500/20' : 'border-orange-500 bg-orange-500/10',
+    green: dragOver ? 'border-green-300 bg-green-500/20' : 'border-green-500 bg-green-500/10'
+  };
 
-    .delete-btn {
-      background: #f44336;
-      color: white;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      cursor: pointer;
-      border: none;
-    }
+  return (
+    <div 
+      className={`flex-1 min-h-64 p-4 border-2 border-dashed rounded-lg transition-colors ${colorClasses[teamColor]}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <h3 className={`text-lg font-bold mb-3 text-center ${teamColor === 'orange' ? 'text-orange-400' : 'text-green-400'}`}>
+        {title} ({team.length})
+      </h3>
+      <div className="space-y-2">
+        {team.map((player) => (
+          <div
+            key={player.id}
+            className="p-2 bg-gray-800 rounded text-white text-center cursor-pointer hover:bg-gray-700 transition-colors relative group"
+            onClick={() => onRemove(player.id)}
+          >
+            {player.name}
+            <span className="absolute top-1 right-2 text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+              ×
+            </span>
+          </div>
+        ))}
+        {team.length === 0 && (
+          <p className="text-gray-400 text-center py-8 italic">
+            Drag players here
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
-    .delete-btn:hover {
-      background: #d32f2f;
-    }
+function TeamsTab() {
+  const { state, dispatch } = useApp();
 
-    .hint {
-      text-align: center;
-      color: #aaa;
-      font-size: 0.9rem;
-      margin-top: 1rem;
-    }
+  const handleDragStart = (e, playerId) => {
+    e.dataTransfer.setData('text/plain', playerId.toString());
+  };
 
-    .empty {
-      color: #aaa;
-      text-align: center;
-      padding: 1rem;
-      font-style: italic;
-    }
+  const handleMoveToOrange = (playerId) => {
+    dispatch({ type: 'MOVE_TO_ORANGE', payload: playerId });
+  };
 
-    .loading {
-      text-align: center;
-      color: #888;
-      padding: 1rem;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>⚽ Sunday Soccer Match</h1>
+  const handleMoveToGreen = (playerId) => {
+    dispatch({ type: 'MOVE_TO_GREEN', payload: playerId });
+  };
+
+  const handleRemoveFromTeam = (playerId) => {
+    dispatch({ type: 'REMOVE_FROM_TEAM', payload: playerId });
+  };
+
+  const availablePlayers = state.players.filter(
+    player => !state.orangeTeam.find(p => p.id === player.id) && 
+              !state.greenTeam.find(p => p.id === player.id)
+  );
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      {/* Available Players */}
+      <div className="mb-6">
+        <h2 className="text-white text-lg font-semibold mb-3">
+          Available Players ({availablePlayers.length})
+        </h2>
+        {availablePlayers.length === 0 ? (
+          <p className="text-gray-400 text-center py-4 italic">
+            {state.players.length === 0 ? 'No players added yet. Go to Add/Remove tab to add players.' : 'All players are assigned to teams'}
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {availablePlayers.map((player) => (
+              <div
+                key={player.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, player.id)}
+                className="px-3 py-2 bg-gray-700 text-white rounded-lg cursor-move hover:bg-gray-600 transition-colors select-none"
+              >
+                {player.name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Teams */}
+      <div className="flex gap-4 flex-col sm:flex-row">
+        <DragDropTeam
+          team={state.orangeTeam}
+          teamColor="orange"
+          onDrop={handleMoveToOrange}
+          onRemove={handleRemoveFromTeam}
+          title="🟠 Orange Team"
+        />
+        <DragDropTeam
+          team={state.greenTeam}
+          teamColor="green"
+          onDrop={handleMoveToGreen}
+          onRemove={handleRemoveFromTeam}
+          title="🟢 Green Team"
+        />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [activeTab, setActiveTab] = useState('add-remove');
+
+  // PWA Install prompt
+  useEffect(() => {
+    let deferredPrompt;
     
-    <form id="name-form">
-      <input 
-        id="name-input" 
-        type="text" 
-        placeholder="Enter your name"
-        required
-      />
-      <button type="submit" id="add-btn">Add</button>
-    </form>
-    
-    <div id="message" class="message"></div>
-    
-    <ul id="name-list">
-      <li class="loading">Loading...</li>
-    </ul>
-    
-    <p class="hint">Tap × to remove a name</p>
-  </div>
-  
-  <script>
-    // Supabase configuration
-    const SUPABASE_URL = 'https://rqpcxbzfvufekaihnmct.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcGN4YnpmdnVmZWthaWhubWN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMzA4NTAsImV4cCI6MjA2NDgwNjg1MH0.mo6COppydSth-qsLGmREFP1yETVpGH1f3CBXbhKDs4M';
-
-    // DOM elements
-    const nameForm = document.getElementById('name-form');
-    const nameInput = document.getElementById('name-input');
-    const nameList = document.getElementById('name-list');
-    const messageDiv = document.getElementById('message');
-    const addBtn = document.getElementById('add-btn');
-
-    // Initialize Supabase
-    let supabase;
-    try {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } catch (error) {
-      console.error('Failed to initialize Supabase:', error);
-      showMessage('Database connection failed', true);
-    }
-
-    // Show status message
-    function showMessage(text, isError = false) {
-      messageDiv.textContent = text;
-      messageDiv.style.backgroundColor = isError ? '#f44336' : '#4CAF50';
-      messageDiv.style.color = 'white';
-      messageDiv.style.display = 'block';
-      
-      setTimeout(() => {
-        messageDiv.style.display = 'none';
-      }, 3000);
-    }
-
-    // Load names from database
-    async function loadNames() {
-      try {
-        const { data, error } = await supabase
-          .from('names')
-          .select('*')
-          .order('created_at', { ascending: true });
-
-        if (error) {
-          console.error('Supabase error:', error);
-          nameList.innerHTML = '<li class="empty">Error loading players. Check database setup.</li>';
-          showMessage(`Database error: ${error.message}`, true);
-          return;
-        }
-
-        nameList.innerHTML = '';
-        
-        if (!data || data.length === 0) {
-          nameList.innerHTML = '<li class="empty">No players yet - be the first to join!</li>';
-          return;
-        }
-
-        data.forEach(entry => {
-          const li = document.createElement('li');
-          li.className = 'name-item';
-          li.innerHTML = `
-            <span>${entry.name}</span>
-            <button class="delete-btn" onclick="deleteName(${entry.id})" title="Remove player">×</button>
-          `;
-          nameList.appendChild(li);
-        });
-        
-      } catch (error) {
-        console.error('Network error:', error);
-        nameList.innerHTML = '<li class="empty">Connection error. Please try again.</li>';
-        showMessage('Connection error', true);
-      }
-    }
-
-    // Add new name
-    async function addName(name) {
-      if (!supabase) {
-        showMessage('Database not connected', true);
-        return;
-      }
-
-      try {
-        addBtn.disabled = true;
-        addBtn.textContent = 'Adding...';
-        
-        const { error } = await supabase
-          .from('names')
-          .insert([{ name: name }]);
-        
-        if (error) {
-          console.error('Insert error:', error);
-          showMessage(`Error: ${error.message}`, true);
-          return;
-        }
-        
-        nameInput.value = '';
-        showMessage('Player added!');
-        await loadNames();
-        
-      } catch (error) {
-        console.error('Add error:', error);
-        showMessage('Failed to add player', true);
-      } finally {
-        addBtn.disabled = false;
-        addBtn.textContent = 'Add';
-      }
-    }
-
-    // Delete name (global function for onclick)
-    window.deleteName = async function(id) {
-      if (!supabase) {
-        showMessage('Database not connected', true);
-        return;
-      }
-
-      try {
-        const { error } = await supabase
-          .from('names')
-          .delete()
-          .eq('id', id);
-        
-        if (error) {
-          console.error('Delete error:', error);
-          showMessage(`Error: ${error.message}`, true);
-          return;
-        }
-        
-        showMessage('Player removed');
-        await loadNames();
-        
-      } catch (error) {
-        console.error('Delete error:', error);
-        showMessage('Failed to remove player', true);
-      }
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
     };
 
-    // Handle form submission
-    nameForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = nameInput.value.trim();
-      
-      if (!name) {
-        showMessage('Please enter a name', true);
-        return;
-      }
-      
-      if (name.length > 50) {
-        showMessage('Name too long (max 50 characters)', true);
-        return;
-      }
-      
-      await addName(name);
-    });
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Initialize app
-    document.addEventListener('DOMContentLoaded', async () => {
-      console.log('⚽ Soccer Match App Started');
-      
-      if (supabase) {
-        await loadNames();
-      } else {
-        nameList.innerHTML = '<li class="empty">Database connection failed</li>';
-      }
-    });
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
 
-    // Handle input focus for better mobile experience
-    nameInput.addEventListener('focus', () => {
-      setTimeout(() => {
-        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
-    });
-  </script>
-</body>
-</html>
+  return (
+    <AppProvider>
+      <div className="min-h-screen bg-gray-900">
+        <NavBar />
+        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        <main className="pb-4">
+          {activeTab === 'add-remove' && <AddRemoveTab />}
+          {activeTab === 'teams' && <TeamsTab />}
+        </main>
+      </div>
+    </AppProvider>
+  );
+}
+
+export default App;
