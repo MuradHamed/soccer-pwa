@@ -20,6 +20,53 @@
         body {
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            touch-action: pan-y;
+            overscroll-behavior: contain;
+        }
+        
+        .pull-to-refresh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 60px;
+            pointer-events: none;
+            transition: transform 0.2s;
+        }
+        
+        .pull-indicator {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(59, 130, 246, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.3s;
+        }
+        
+        .pull-indicator svg {
+            width: 24px;
+            height: 24px;
+            stroke: #3b82f6;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            transition: transform 0.3s;
+        }
+        
+        .refreshing .pull-indicator {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -27,7 +74,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { createContext, useContext, useReducer, useState, useEffect } = React;
+        const { createContext, useContext, useReducer, useState, useEffect, useRef } = React;
 
         // Supabase client configuration
         const supabaseUrl = 'https://rqpcxbzfvufekaihnmct.supabase.co';
@@ -291,6 +338,11 @@
                     const player = state.players.find(p => p.id === playerId);
                     if (!player) return;
 
+                    // First, remove player from any existing team
+                    const { error: deleteError } = await supabase
+                        .from('teams')
+                        .delete()
+                        .eq('player_id', playerId);
 
                     if (deleteError) throw deleteError;
 
@@ -370,6 +422,105 @@
             return context;
         }
 
+        // Pull to Refresh Component
+        function PullToRefresh({ onRefresh, children }) {
+            const { state } = useApp();
+            const [pullState, setPullState] = useState({ 
+                pulling: false, 
+                distance: 0,
+                refreshing: false
+            });
+            
+            const startY = useRef(0);
+            const containerRef = useRef(null);
+            
+            useEffect(() => {
+                if (state.loading) {
+                    setPullState(prev => ({ ...prev, refreshing: true }));
+                } else {
+                    setPullState(prev => ({ ...prev, refreshing: false }));
+                }
+            }, [state.loading]);
+            
+            const handleTouchStart = (e) => {
+                // Only trigger when at the top of the page
+                if (window.scrollY <= 0 && !state.loading) {
+                    startY.current = e.touches[0].clientY;
+                    setPullState({ pulling: true, distance: 0, refreshing: false });
+                }
+            };
+            
+            const handleTouchMove = (e) => {
+                if (!pullState.pulling) return;
+                
+                const currentY = e.touches[0].clientY;
+                const distance = Math.max(0, currentY - startY.current);
+                
+                // Only allow pull down when at top
+                if (distance > 0 && window.scrollY <= 0) {
+                    setPullState({ 
+                        pulling: true, 
+                        distance: Math.min(distance, 100),
+                        refreshing: false
+                    });
+                    
+                    // Prevent scrolling when pulling down
+                    if (distance > 10) {
+                        e.preventDefault();
+                    }
+                }
+            };
+            
+            const handleTouchEnd = () => {
+                if (!pullState.pulling) return;
+                
+                if (pullState.distance > 60) {
+                    setPullState({ 
+                        pulling: false, 
+                        distance: 0,
+                        refreshing: true 
+                    });
+                    onRefresh();
+                } else {
+                    setPullState({ 
+                        pulling: false, 
+                        distance: 0,
+                        refreshing: false 
+                    });
+                }
+            };
+            
+            // Arrow SVG for pull indicator
+            const arrowSvg = React.createElement('svg', { viewBox: "0 0 24 24" },
+                React.createElement('path', { d: "M12 5v14" }),
+                React.createElement('path', { d: "M19 12l-7 7" }),
+                React.createElement('path', { d: "M5 12l7-7" })
+            );
+            
+            return React.createElement('div', {
+                ref: containerRef,
+                onTouchStart: handleTouchStart,
+                onTouchMove: handleTouchMove,
+                onTouchEnd: handleTouchEnd,
+                style: { position: 'relative' }
+            },
+                React.createElement('div', {
+                    className: `pull-to-refresh ${pullState.refreshing ? 'refreshing' : ''}`,
+                    style: { 
+                        transform: `translateY(${pullState.distance}px)`,
+                        opacity: pullState.pulling || pullState.refreshing ? 1 : 0
+                    }
+                },
+                    React.createElement('div', { className: "pull-indicator" },
+                        pullState.refreshing 
+                            ? React.createElement('div', { className: "loader" }) 
+                            : arrowSvg
+                    )
+                ),
+                children
+            );
+        }
+
         // Components
         function NavBar() {
             return React.createElement('nav', {
@@ -421,7 +572,7 @@
         }
 
         function AddRemoveTab() {
-            const { state, addPlayer, removePlayer, dispatch } = useApp();
+            const { state, addPlayer, removePlayer, dispatch, loadData } = useApp();
             const [inputValue, setInputValue] = useState('');
 
             const handleSubmit = async (e) => {
@@ -442,51 +593,53 @@
                 }
             };
 
-            return React.createElement('div', { className: "p-4 max-w-md mx-auto" },
-                React.createElement(ErrorBanner, {
-                    error: state.error,
-                    onDismiss: () => dispatch({ type: 'SET_ERROR', payload: null })
-                }),
-                React.createElement('div', { className: "mb-6" },
-                    React.createElement('div', { className: "flex gap-2" },
-                        React.createElement('input', {
-                            type: "text",
-                            value: inputValue,
-                            onChange: (e) => setInputValue(e.target.value),
-                            onKeyPress: handleKeyPress,
-                            placeholder: "Enter player name",
-                            disabled: state.loading,
-                            className: "flex-1 px-4 py-3 bg-gray-800 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                        }),
-                        React.createElement('button', {
-                            onClick: handleSubmit,
-                            disabled: state.loading || !inputValue.trim(),
-                            className: "px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        }, state.loading ? '...' : 'Add')
-                    )
-                ),
-                React.createElement('div', { className: "space-y-2" },
-                    React.createElement('h2', { className: "text-white text-lg font-semibold mb-3" },
-                        `Players (${state.players.length})`
+            return React.createElement(PullToRefresh, { onRefresh: loadData },
+                React.createElement('div', { className: "p-4 max-w-md mx-auto" },
+                    React.createElement(ErrorBanner, {
+                        error: state.error,
+                        onDismiss: () => dispatch({ type: 'SET_ERROR', payload: null })
+                    }),
+                    React.createElement('div', { className: "mb-6" },
+                        React.createElement('div', { className: "flex gap-2" },
+                            React.createElement('input', {
+                                type: "text",
+                                value: inputValue,
+                                onChange: (e) => setInputValue(e.target.value),
+                                onKeyPress: handleKeyPress,
+                                placeholder: "Enter player name",
+                                disabled: state.loading,
+                                className: "flex-1 px-4 py-3 bg-gray-800 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                            }),
+                            React.createElement('button', {
+                                onClick: handleSubmit,
+                                disabled: state.loading || !inputValue.trim(),
+                                className: "px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            }, state.loading ? '...' : 'Add')
+                        )
                     ),
-                    state.loading ? 
-                        React.createElement('p', { className: "text-gray-400 text-center py-8" }, 'Loading...') :
-                        state.players.length === 0 ?
-                            React.createElement('p', { className: "text-gray-400 text-center py-8 italic" },
-                                'No players yet. Add some names above!'
-                            ) :
-                            React.createElement('div', { className: "space-y-2" },
-                                state.players.map((player) =>
-                                    React.createElement('div', {
-                                        key: player.id,
-                                        onClick: () => handleRemovePlayer(player.id),
-                                        className: "flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-700 transition-colors"
-                                    },
-                                        React.createElement('span', { className: "text-white" }, player.name),
-                                        React.createElement('span', { className: "text-red-400 text-sm" }, 'Tap to remove')
+                    React.createElement('div', { className: "space-y-2" },
+                        React.createElement('h2', { className: "text-white text-lg font-semibold mb-3" },
+                            `Players (${state.players.length})`
+                        ),
+                        state.loading ? 
+                            React.createElement('p', { className: "text-gray-400 text-center py-8" }, 'Loading...') :
+                            state.players.length === 0 ?
+                                React.createElement('p', { className: "text-gray-400 text-center py-8 italic" },
+                                    'No players yet. Add some names above!'
+                                ) :
+                                React.createElement('div', { className: "space-y-2" },
+                                    state.players.map((player) =>
+                                        React.createElement('div', {
+                                            key: player.id,
+                                            onClick: () => handleRemovePlayer(player.id),
+                                            className: "flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-700 transition-colors"
+                                        },
+                                            React.createElement('span', { className: "text-white" }, player.name),
+                                            React.createElement('span', { className: "text-red-400 text-sm" }, 'Tap to remove')
+                                        )
                                     )
                                 )
-                            )
+                    )
                 )
             );
         }
@@ -550,7 +703,7 @@
         }
 
         function TeamsTab() {
-            const { state, moveToTeam, removeFromTeam, dispatch } = useApp();
+            const { state, moveToTeam, removeFromTeam, dispatch, loadData } = useApp();
 
             const handleDragStart = (e, playerId) => {
                 e.dataTransfer.setData('text/plain', playerId.toString());
@@ -574,47 +727,49 @@
                           !state.greenTeam.find(p => p.id === player.id)
             );
 
-            return React.createElement('div', { className: "p-4 max-w-4xl mx-auto" },
-                React.createElement(ErrorBanner, {
-                    error: state.error,
-                    onDismiss: () => dispatch({ type: 'SET_ERROR', payload: null })
-                }),
-                React.createElement('div', { className: "mb-6" },
-                    React.createElement('h2', { className: "text-white text-lg font-semibold mb-3" },
-                        `Available Players (${availablePlayers.length})`
-                    ),
-                    state.loading ?
-                        React.createElement('p', { className: "text-gray-400 text-center py-4" }, 'Loading...') :
-                        availablePlayers.length === 0 ?
-                            React.createElement('p', { className: "text-gray-400 text-center py-4 italic" },
-                                state.players.length === 0 ? 'No players added yet. Go to Add/Remove tab to add players.' : 'All players are assigned to teams'
-                            ) :
-                            React.createElement('div', { className: "flex flex-wrap gap-2" },
-                                availablePlayers.map((player) =>
-                                    React.createElement('div', {
-                                        key: player.id,
-                                        draggable: true,
-                                        onDragStart: (e) => handleDragStart(e, player.id),
-                                        className: "px-3 py-2 bg-gray-700 text-white rounded-lg cursor-move hover:bg-gray-600 transition-colors select-none"
-                                    }, player.name)
-                                )
-                            )
-                ),
-                React.createElement('div', { className: "flex gap-4 flex-col sm:flex-row" },
-                    React.createElement(DragDropTeam, {
-                        team: state.orangeTeam,
-                        teamColor: "orange",
-                        onDrop: handleMoveToOrange,
-                        onRemove: handleRemoveFromTeam,
-                        title: "🟠 Orange Team"
+            return React.createElement(PullToRefresh, { onRefresh: loadData },
+                React.createElement('div', { className: "p-4 max-w-4xl mx-auto" },
+                    React.createElement(ErrorBanner, {
+                        error: state.error,
+                        onDismiss: () => dispatch({ type: 'SET_ERROR', payload: null })
                     }),
-                    React.createElement(DragDropTeam, {
-                        team: state.greenTeam,
-                        teamColor: "green",
-                        onDrop: handleMoveToGreen,
-                        onRemove: handleRemoveFromTeam,
-                        title: "🟢 Green Team"
-                    })
+                    React.createElement('div', { className: "mb-6" },
+                        React.createElement('h2', { className: "text-white text-lg font-semibold mb-3" },
+                            `Available Players (${availablePlayers.length})`
+                        ),
+                        state.loading ?
+                            React.createElement('p', { className: "text-gray-400 text-center py-4" }, 'Loading...') :
+                            availablePlayers.length === 0 ?
+                                React.createElement('p', { className: "text-gray-400 text-center py-4 italic" },
+                                    state.players.length === 0 ? 'No players added yet. Go to Add/Remove tab to add players.' : 'All players are assigned to teams'
+                                ) :
+                                React.createElement('div', { className: "flex flex-wrap gap-2" },
+                                    availablePlayers.map((player) =>
+                                        React.createElement('div', {
+                                            key: player.id,
+                                            draggable: true,
+                                            onDragStart: (e) => handleDragStart(e, player.id),
+                                            className: "px-3 py-2 bg-gray-700 text-white rounded-lg cursor-move hover:bg-gray-600 transition-colors select-none"
+                                        }, player.name)
+                                    )
+                                )
+                    ),
+                    React.createElement('div', { className: "flex gap-4 flex-col sm:flex-row" },
+                        React.createElement(DragDropTeam, {
+                            team: state.orangeTeam,
+                            teamColor: "orange",
+                            onDrop: handleMoveToOrange,
+                            onRemove: handleRemoveFromTeam,
+                            title: "🟠 Orange Team"
+                        }),
+                        React.createElement(DragDropTeam, {
+                            team: state.greenTeam,
+                            teamColor: "green",
+                            onDrop: handleMoveToGreen,
+                            onRemove: handleRemoveFromTeam,
+                            title: "🟢 Green Team"
+                        })
+                    )
                 )
             );
         }
