@@ -291,11 +291,6 @@
                     const player = state.players.find(p => p.id === playerId);
                     if (!player) return;
 
-                    // First remove from any existing team
-                    const { error: deleteError } = await supabase
-                        .from('teams')
-                        .delete()
-                        .eq('player_id', playerId);
 
                     if (deleteError) throw deleteError;
 
