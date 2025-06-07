@@ -1,10 +1,94 @@
 import React, { createContext, useContext, useReducer, useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
-// Supabase client with your actual credentials
+// Supabase client configuration
 const supabaseUrl = 'https://rqpcxbzfvufekaihnmct.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcGN4YnpmdnVmZWthaWhubWN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMzA4NTAsImV4cCI6MjA2NDgwNjg1MH0.mo6COppydSth-qsLGmREFP1yETVpGH1f3CBXbhKDs4M';
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Simple Supabase client implementation using fetch
+const supabase = {
+  from: (table) => ({
+    select: (columns = '*') => ({
+      order: (column, options) => ({
+        then: async (callback) => {
+          try {
+            const response = await fetch(`${supabaseUrl}/rest/v1/${table}?select=${columns}&order=${column}.${options.ascending ? 'asc' : 'desc'}`, {
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            const data = await response.json();
+            callback({ data: response.ok ? data : [], error: response.ok ? null : data });
+          } catch (error) {
+            callback({ data: [], error });
+          }
+        }
+      }),
+      then: async (callback) => {
+        try {
+          const response = await fetch(`${supabaseUrl}/rest/v1/${table}?select=${columns}`, {
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const data = await response.json();
+          callback({ data: response.ok ? data : [], error: response.ok ? null : data });
+        } catch (error) {
+          callback({ data: [], error });
+        }
+      }
+    }),
+    insert: (data) => ({
+      select: () => ({
+        single: () => ({
+          then: async (callback) => {
+            try {
+              const response = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
+                method: 'POST',
+                headers: {
+                  'apikey': supabaseKey,
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(data[0])
+              });
+              const result = await response.json();
+              callback({ 
+                data: response.ok ? result : null, 
+                error: response.ok ? null : result 
+              });
+            } catch (error) {
+              callback({ data: null, error });
+            }
+          }
+        })
+      })
+    }),
+    delete: () => ({
+      eq: (column, value) => ({
+        then: async (callback) => {
+          try {
+            const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${column}=eq.${value}`, {
+              method: 'DELETE',
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            callback({ error: response.ok ? null : await response.json() });
+          } catch (error) {
+            callback({ error });
+          }
+        }
+      })
+    })
+  })
+};
 
 // State Management with Context
 const AppContext = createContext();
@@ -58,48 +142,76 @@ function appReducer(state, action) {
 function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   
-  // Load data on app start
-  useEffect(() => {
-    loadPlayers();
-    loadTeams();
-  }, []);
-
-  const loadPlayers = async () => {
+  // Load initial data from Supabase
+  const loadData = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const { data, error } = await supabase
+      
+      // Load players
+      const { data: players, error: playersError } = await supabase
         .from('players')
         .select('*')
         .order('created_at', { ascending: true });
       
-      if (error) throw error;
-      dispatch({ type: 'SET_PLAYERS', payload: data || [] });
+      if (playersError) {
+        console.error('Players error:', playersError);
+        throw playersError;
+      }
+      
+      // Load teams
+      const { data: teams, error: teamsError } = await supabase
+        .from('teams')
+        .select('player_id, team_color');
+      
+      if (teamsError) {
+        console.error('Teams error:', teamsError);
+        throw teamsError;
+      }
+      
+      // Organize teams
+      const orangeTeam = [];
+      const greenTeam = [];
+      
+      teams?.forEach(team => {
+        const player = players?.find(p => p.id === team.player_id);
+        if (player) {
+          if (team.team_color === 'orange') {
+            orangeTeam.push(player);
+          } else {
+            greenTeam.push(player);
+          }
+        }
+      });
+      
+      dispatch({ type: 'SET_PLAYERS', payload: players || [] });
+      dispatch({ type: 'SET_TEAMS', payload: { orange: orangeTeam, green: greenTeam } });
+      
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
-      console.error('Error loading players:', error);
+      console.error('Error loading data:', error);
+      dispatch({ type: 'SET_ERROR', payload: `Database connection error: ${error.message}` });
+      
+      // Fallback to localStorage if Supabase fails
+      const savedPlayers = localStorage.getItem('soccer-players');
+      const savedTeams = localStorage.getItem('soccer-teams');
+      
+      if (savedPlayers) {
+        dispatch({ type: 'SET_PLAYERS', payload: JSON.parse(savedPlayers) });
+      }
+      
+      if (savedTeams) {
+        const teams = JSON.parse(savedTeams);
+        dispatch({ type: 'SET_TEAMS', payload: teams });
+      }
     }
   };
 
-  const loadTeams = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('teams')
-        .select(`
-          player_id,
-          team_color,
-          players (id, name)
-        `);
-      
-      if (error) throw error;
-      
-      const orange = data?.filter(t => t.team_color === 'orange').map(t => t.players) || [];
-      const green = data?.filter(t => t.team_color === 'green').map(t => t.players) || [];
-      
-      dispatch({ type: 'SET_TEAMS', payload: { orange, green } });
-    } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
-      console.error('Error loading teams:', error);
-    }
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const saveToStorage = (players, teams) => {
+    localStorage.setItem('soccer-players', JSON.stringify(players));
+    localStorage.setItem('soccer-teams', JSON.stringify(teams));
   };
 
   const addPlayer = async (name) => {
@@ -111,42 +223,64 @@ function AppProvider({ children }) {
         .single();
       
       if (error) throw error;
+      
       dispatch({ type: 'ADD_PLAYER_LOCAL', payload: data });
+      
+      // Backup to localStorage
+      const updatedPlayers = [...state.players, data];
+      saveToStorage(updatedPlayers, { orange: state.orangeTeam, green: state.greenTeam });
+      
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
       console.error('Error adding player:', error);
+      
+      // Fallback to localStorage
+      const newPlayer = { id: Date.now(), name, created_at: new Date().toISOString() };
+      const updatedPlayers = [...state.players, newPlayer];
+      
+      dispatch({ type: 'ADD_PLAYER_LOCAL', payload: newPlayer });
+      saveToStorage(updatedPlayers, { orange: state.orangeTeam, green: state.greenTeam });
     }
   };
 
   const removePlayer = async (playerId) => {
     try {
       // Remove from teams first
-      await supabase
-        .from('teams')
-        .delete()
-        .eq('player_id', playerId);
+      await supabase.from('teams').delete().eq('player_id', playerId);
       
-      // Then remove player
-      const { error } = await supabase
-        .from('players')
-        .delete()
-        .eq('id', playerId);
-      
+      // Remove player
+      const { error } = await supabase.from('players').delete().eq('id', playerId);
       if (error) throw error;
+      
       dispatch({ type: 'REMOVE_PLAYER_LOCAL', payload: playerId });
+      
+      // Backup to localStorage
+      const updatedPlayers = state.players.filter(p => p.id !== playerId);
+      const updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
+      const updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
+      saveToStorage(updatedPlayers, { orange: updatedOrange, green: updatedGreen });
+      
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
       console.error('Error removing player:', error);
+      
+      // Fallback to localStorage
+      const updatedPlayers = state.players.filter(p => p.id !== playerId);
+      const updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
+      const updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
+      
+      dispatch({ type: 'REMOVE_PLAYER_LOCAL', payload: playerId });
+      saveToStorage(updatedPlayers, { orange: updatedOrange, green: updatedGreen });
     }
   };
 
   const moveToTeam = async (playerId, teamColor) => {
     try {
-      // Remove from any existing team
-      await supabase
-        .from('teams')
-        .delete()
-        .eq('player_id', playerId);
+      const player = state.players.find(p => p.id === playerId);
+      if (!player) return;
+      
+      // Remove from current team
+      await supabase.from('teams').delete().eq('player_id', playerId);
       
       // Add to new team
       const { error } = await supabase
@@ -155,26 +289,80 @@ function AppProvider({ children }) {
       
       if (error) throw error;
       
-      // Reload teams to get updated state
-      await loadTeams();
+      // Update local state
+      let updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
+      let updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
+      
+      if (teamColor === 'orange') {
+        updatedOrange = [...updatedOrange, player];
+      } else {
+        updatedGreen = [...updatedGreen, player];
+      }
+      
+      dispatch({ 
+        type: 'UPDATE_TEAMS_LOCAL', 
+        payload: { orange: updatedOrange, green: updatedGreen } 
+      });
+      
+      // Backup to localStorage
+      saveToStorage(state.players, { orange: updatedOrange, green: updatedGreen });
+      
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
       console.error('Error moving player to team:', error);
+      
+      // Fallback to localStorage
+      const player = state.players.find(p => p.id === playerId);
+      if (!player) return;
+      
+      let updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
+      let updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
+      
+      if (teamColor === 'orange') {
+        updatedOrange = [...updatedOrange, player];
+      } else {
+        updatedGreen = [...updatedGreen, player];
+      }
+      
+      dispatch({ 
+        type: 'UPDATE_TEAMS_LOCAL', 
+        payload: { orange: updatedOrange, green: updatedGreen } 
+      });
+      
+      saveToStorage(state.players, { orange: updatedOrange, green: updatedGreen });
     }
   };
 
   const removeFromTeam = async (playerId) => {
     try {
-      const { error } = await supabase
-        .from('teams')
-        .delete()
-        .eq('player_id', playerId);
-      
+      const { error } = await supabase.from('teams').delete().eq('player_id', playerId);
       if (error) throw error;
-      await loadTeams();
+      
+      const updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
+      const updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
+      
+      dispatch({ 
+        type: 'UPDATE_TEAMS_LOCAL', 
+        payload: { orange: updatedOrange, green: updatedGreen } 
+      });
+      
+      // Backup to localStorage
+      saveToStorage(state.players, { orange: updatedOrange, green: updatedGreen });
+      
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
       console.error('Error removing from team:', error);
+      
+      // Fallback to localStorage
+      const updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
+      const updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
+      
+      dispatch({ 
+        type: 'UPDATE_TEAMS_LOCAL', 
+        payload: { orange: updatedOrange, green: updatedGreen } 
+      });
+      
+      saveToStorage(state.players, { orange: updatedOrange, green: updatedGreen });
     }
   };
   
@@ -186,8 +374,7 @@ function AppProvider({ children }) {
       removePlayer,
       moveToTeam,
       removeFromTeam,
-      loadPlayers,
-      loadTeams
+      loadData
     }}>
       {children}
     </AppContext.Provider>
@@ -245,10 +432,10 @@ function ErrorBanner({ error, onDismiss }) {
   
   return (
     <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 mx-4 mt-4 rounded-lg flex justify-between items-center">
-      <span>{error}</span>
+      <span className="text-sm">{error}</span>
       <button 
         onClick={onDismiss}
-        className="text-red-400 hover:text-red-200 ml-4"
+        className="text-red-400 hover:text-red-200 ml-4 text-lg"
       >
         ×
       </button>
