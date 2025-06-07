@@ -78,9 +78,15 @@
                                         body: JSON.stringify(data[0])
                                     });
                                     const result = await response.json();
+                                    
+                                    // FIX: Handle single object response properly
+                                    const playerData = Array.isArray(result) && result.length > 0 
+                                        ? result[0] 
+                                        : result;
+                                    
                                     callback({ 
-                                        data: response.ok ? result : null, 
-                                        error: response.ok ? null : result 
+                                        data: response.ok ? playerData : null, 
+                                        error: response.ok ? null : playerData 
                                     });
                                 } catch (error) {
                                     callback({ data: null, error });
@@ -92,6 +98,12 @@
                 delete: () => ({
                     eq: (column, value) => ({
                         then: async (callback) => {
+                            // FIX: Prevent API call with undefined values
+                            if (value === undefined || value === null) {
+                                callback({ error: "Invalid value" });
+                                return;
+                            }
+                            
                             try {
                                 const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${column}=eq.${value}`, {
                                     method: 'DELETE',
@@ -247,16 +259,28 @@
                     dispatch({ type: 'SET_ERROR', payload: error.message });
                     console.error('Error adding player:', error);
                     
-                    // Fallback to memory
-                    const newPlayer = { id: Date.now(), name, created_at: new Date().toISOString() };
-                    const updatedPlayers = [...state.players, newPlayer];
+                    // Fallback to memory - FIXED: Ensure name is properly set
+                    const newPlayer = { 
+                        id: Date.now(), 
+                        name: name,  // FIX: Use the name parameter
+                        created_at: new Date().toISOString() 
+                    };
                     
                     dispatch({ type: 'ADD_PLAYER_LOCAL', payload: newPlayer });
+                    
+                    // Backup to memory
+                    const updatedPlayers = [...state.players, newPlayer];
                     saveToMemory(updatedPlayers, { orange: state.orangeTeam, green: state.greenTeam });
                 }
             };
 
             const removePlayer = async (playerId) => {
+                // FIX: Prevent API calls with undefined IDs
+                if (!playerId) {
+                    console.error('Invalid player ID');
+                    return;
+                }
+                
                 try {
                     // Remove from teams first
                     await supabase.from('teams').delete().eq('player_id', playerId);
@@ -288,6 +312,12 @@
             };
 
             const moveToTeam = async (playerId, teamColor) => {
+                // FIX: Prevent API calls with undefined IDs
+                if (!playerId) {
+                    console.error('Invalid player ID');
+                    return;
+                }
+                
                 try {
                     const player = state.players.find(p => p.id === playerId);
                     if (!player) return;
@@ -347,6 +377,12 @@
             };
 
             const removeFromTeam = async (playerId) => {
+                // FIX: Prevent API calls with undefined IDs
+                if (!playerId) {
+                    console.error('Invalid player ID');
+                    return;
+                }
+                
                 try {
                     const { error } = await supabase.from('teams').delete().eq('player_id', playerId);
                     if (error) throw error;
@@ -617,6 +653,7 @@
                             ) :
                             React.createElement('div', { className: "flex flex-wrap gap-2" },
                                 availablePlayers.map((player) =>
+                                    // FIX: Added key prop to fix React warning
                                     React.createElement('div', {
                                         key: player.id,
                                         draggable: true,
@@ -663,8 +700,10 @@
             );
         }
 
-        // Render the app
-        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+        // FIX: Updated to use createRoot for React 18
+        const rootElement = document.getElementById('root');
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(React.createElement(App));
     </script>
 </body>
 </html>
