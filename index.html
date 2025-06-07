@@ -8,26 +8,20 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="كرة - الاحد">
+    <link rel="apple-touch-icon" href="/icon.png">
+    <meta name="theme-color" content="#111827">
+    
     <style>
         body {
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
         }
     </style>
-
-<!-- PWA Manifest -->
-<link rel="manifest" href="/manifest.json">
-
-<!-- iOS Safari PWA Config -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="كرة - الاحد">
-<link rel="apple-touch-icon" href="/icon.png">
-
-<!-- Theme Color -->
-<meta name="theme-color" content="#111827">
-
-
-
 </head>
 <body>
     <div id="root"></div>
@@ -35,11 +29,11 @@
     <script type="text/babel">
         const { createContext, useContext, useReducer, useState, useEffect } = React;
 
-        // Supabase client configuration - UPDATE THESE WITH YOUR CREDENTIALS
+        // Supabase client configuration
         const supabaseUrl = 'https://rqpcxbzfvufekaihnmct.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcGN4YnpmdnVmZWthaWhubWN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMzA4NTAsImV4cCI6MjA2NDgwNjg1MH0.mo6COppydSth-qsLGmREFP1yETVpGH1f3CBXbhKDs4M';
 
-        // Simple Supabase client implementation using fetch
+        // Enhanced Supabase client
         const supabase = {
             from: (table) => ({
                 select: (columns = '*') => ({
@@ -80,6 +74,7 @@
                     select: () => ({
                         single: () => ({
                             then: async (callback) => {
+                                console.log(`Inserting into ${table}:`, data);
                                 try {
                                     const response = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
                                         method: 'POST',
@@ -91,13 +86,9 @@
                                         },
                                         body: JSON.stringify(data[0])
                                     });
+                                    console.log('Insert response:', response);
                                     const result = await response.json();
-                                    
-                                    // FIX: Handle single object response properly
-                                    const playerData = Array.isArray(result) && result.length > 0 
-                                        ? result[0] 
-                                        : result;
-                                    
+                                    const playerData = Array.isArray(result) && result.length > 0 ? result[0] : result;
                                     callback({ 
                                         data: response.ok ? playerData : null, 
                                         error: response.ok ? null : playerData 
@@ -112,13 +103,12 @@
                 delete: () => ({
                     eq: (column, value) => ({
                         then: async (callback) => {
-                            // FIX: Prevent API call with undefined values
                             if (value === undefined || value === null) {
                                 callback({ error: "Invalid value" });
                                 return;
                             }
-                            
                             try {
+                                console.log(`Deleting from ${table} where ${column}=${value}`);
                                 const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${column}=eq.${value}`, {
                                     method: 'DELETE',
                                     headers: {
@@ -127,6 +117,7 @@
                                         'Content-Type': 'application/json'
                                     }
                                 });
+                                console.log('Delete response:', response);
                                 callback({ error: response.ok ? null : await response.json() });
                             } catch (error) {
                                 callback({ error });
@@ -137,7 +128,7 @@
             })
         };
 
-        // State Management with Context
+        // State Management
         const AppContext = createContext();
 
         const initialState = {
@@ -189,37 +180,30 @@
         function AppProvider({ children }) {
             const [state, dispatch] = useReducer(appReducer, initialState);
             
-            // Fallback storage for when Supabase fails
-            const saveToMemory = (players, teams) => {
-                // Store in component state as fallback
-                console.log('Saving to memory:', { players: players.length, teams });
-            };
-
-            // Load initial data from Supabase
             const loadData = async () => {
                 try {
                     dispatch({ type: 'SET_LOADING', payload: true });
                     
                     // Load players
-                    const { data: players, error: playersError } = await supabase
-                        .from('players')
-                        .select('*')
-                        .order('created_at', { ascending: true });
+                    const { data: players, error: playersError } = await new Promise(resolve => {
+                        supabase
+                            .from('players')
+                            .select('*')
+                            .order('created_at', { ascending: true })
+                            .then(resolve);
+                    });
                     
-                    if (playersError) {
-                        console.error('Players error:', playersError);
-                        throw playersError;
-                    }
+                    if (playersError) throw playersError;
                     
                     // Load teams
-                    const { data: teams, error: teamsError } = await supabase
-                        .from('teams')
-                        .select('player_id, team_color');
+                    const { data: teams, error: teamsError } = await new Promise(resolve => {
+                        supabase
+                            .from('teams')
+                            .select('player_id, team_color')
+                            .then(resolve);
+                    });
                     
-                    if (teamsError) {
-                        console.error('Teams error:', teamsError);
-                        throw teamsError;
-                    }
+                    if (teamsError) throw teamsError;
                     
                     // Organize teams
                     const orangeTeam = [];
@@ -241,11 +225,7 @@
                     
                 } catch (error) {
                     console.error('Error loading data:', error);
-                    dispatch({ type: 'SET_ERROR', payload: `Database connection error: ${error.message}` });
-                    
-                    // Start with empty state if database fails
-                    dispatch({ type: 'SET_PLAYERS', payload: [] });
-                    dispatch({ type: 'SET_TEAMS', payload: { orange: [], green: [] } });
+                    dispatch({ type: 'SET_ERROR', payload: `Database error: ${error.message}` });
                 }
             };
 
@@ -265,133 +245,92 @@
                     
                     dispatch({ type: 'ADD_PLAYER_LOCAL', payload: data });
                     
-                    // Backup to memory
-                    const updatedPlayers = [...state.players, data];
-                    saveToMemory(updatedPlayers, { orange: state.orangeTeam, green: state.greenTeam });
-                    
                 } catch (error) {
                     dispatch({ type: 'SET_ERROR', payload: error.message });
                     console.error('Error adding player:', error);
                     
-                    // Fallback to memory - FIXED: Ensure name is properly set
                     const newPlayer = { 
                         id: Date.now(), 
-                        name: name,  // FIX: Use the name parameter
+                        name: name,
                         created_at: new Date().toISOString() 
                     };
                     
                     dispatch({ type: 'ADD_PLAYER_LOCAL', payload: newPlayer });
-                    
-                    // Backup to memory
-                    const updatedPlayers = [...state.players, newPlayer];
-                    saveToMemory(updatedPlayers, { orange: state.orangeTeam, green: state.greenTeam });
                 }
             };
 
             const removePlayer = async (playerId) => {
-                // FIX: Prevent API calls with undefined IDs
                 if (!playerId) {
                     console.error('Invalid player ID');
                     return;
                 }
                 
                 try {
-                    // Remove from teams first
                     await supabase.from('teams').delete().eq('player_id', playerId);
                     
-                    // Remove player
                     const { error } = await supabase.from('players').delete().eq('id', playerId);
                     if (error) throw error;
                     
                     dispatch({ type: 'REMOVE_PLAYER_LOCAL', payload: playerId });
                     
-                    // Backup to memory
-                    const updatedPlayers = state.players.filter(p => p.id !== playerId);
-                    const updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
-                    const updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
-                    saveToMemory(updatedPlayers, { orange: updatedOrange, green: updatedGreen });
-                    
                 } catch (error) {
                     dispatch({ type: 'SET_ERROR', payload: error.message });
                     console.error('Error removing player:', error);
                     
-                    // Fallback to memory
-                    const updatedPlayers = state.players.filter(p => p.id !== playerId);
-                    const updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
-                    const updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
-                    
                     dispatch({ type: 'REMOVE_PLAYER_LOCAL', payload: playerId });
-                    saveToMemory(updatedPlayers, { orange: updatedOrange, green: updatedGreen });
                 }
             };
 
             const moveToTeam = async (playerId, teamColor) => {
-                // FIX: Prevent API calls with undefined IDs
                 if (!playerId) {
                     console.error('Invalid player ID');
                     return;
                 }
-                
+
                 try {
                     const player = state.players.find(p => p.id === playerId);
                     if (!player) return;
-                    
-                    // Remove from current team
-                    await supabase.from('teams').delete().eq('player_id', playerId);
-                    
-                    // Add to new team
-                    const { error } = await supabase
+
+                    // First remove from any existing team
+                    const { error: deleteError } = await supabase
                         .from('teams')
-                        .insert([{ player_id: playerId, team_color: teamColor }]);
-                    
-                    if (error) throw error;
-                    
+                        .delete()
+                        .eq('player_id', playerId);
+
+                    if (deleteError) throw deleteError;
+
+                    // Then add to new team
+                    const { error: insertError } = await supabase
+                        .from('teams')
+                        .insert([{ 
+                            player_id: playerId, 
+                            team_color: teamColor 
+                        }]);
+
+                    if (insertError) throw insertError;
+
                     // Update local state
                     let updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
                     let updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
-                    
+
                     if (teamColor === 'orange') {
                         updatedOrange = [...updatedOrange, player];
                     } else {
                         updatedGreen = [...updatedGreen, player];
                     }
-                    
+
                     dispatch({ 
                         type: 'UPDATE_TEAMS_LOCAL', 
                         payload: { orange: updatedOrange, green: updatedGreen } 
                     });
-                    
-                    // Backup to memory
-                    saveToMemory(state.players, { orange: updatedOrange, green: updatedGreen });
-                    
+
                 } catch (error) {
-                    dispatch({ type: 'SET_ERROR', payload: error.message });
                     console.error('Error moving player to team:', error);
-                    
-                    // Fallback to memory
-                    const player = state.players.find(p => p.id === playerId);
-                    if (!player) return;
-                    
-                    let updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
-                    let updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
-                    
-                    if (teamColor === 'orange') {
-                        updatedOrange = [...updatedOrange, player];
-                    } else {
-                        updatedGreen = [...updatedGreen, player];
-                    }
-                    
-                    dispatch({ 
-                        type: 'UPDATE_TEAMS_LOCAL', 
-                        payload: { orange: updatedOrange, green: updatedGreen } 
-                    });
-                    
-                    saveToMemory(state.players, { orange: updatedOrange, green: updatedGreen });
+                    dispatch({ type: 'SET_ERROR', payload: 'Failed to save team assignment' });
                 }
             };
 
             const removeFromTeam = async (playerId) => {
-                // FIX: Prevent API calls with undefined IDs
                 if (!playerId) {
                     console.error('Invalid player ID');
                     return;
@@ -409,23 +348,9 @@
                         payload: { orange: updatedOrange, green: updatedGreen } 
                     });
                     
-                    // Backup to memory
-                    saveToMemory(state.players, { orange: updatedOrange, green: updatedGreen });
-                    
                 } catch (error) {
                     dispatch({ type: 'SET_ERROR', payload: error.message });
                     console.error('Error removing from team:', error);
-                    
-                    // Fallback to memory
-                    const updatedOrange = state.orangeTeam.filter(p => p.id !== playerId);
-                    const updatedGreen = state.greenTeam.filter(p => p.id !== playerId);
-                    
-                    dispatch({ 
-                        type: 'UPDATE_TEAMS_LOCAL', 
-                        payload: { orange: updatedOrange, green: updatedGreen } 
-                    });
-                    
-                    saveToMemory(state.players, { orange: updatedOrange, green: updatedGreen });
                 }
             };
             
@@ -576,6 +501,7 @@
 
             const handleDragOver = (e) => {
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
                 setDragOver(true);
             };
 
@@ -588,7 +514,9 @@
                 e.preventDefault();
                 setDragOver(false);
                 const playerId = parseInt(e.dataTransfer.getData('text/plain'));
-                onDrop(playerId);
+                if (!isNaN(playerId)) {
+                    onDrop(playerId);
+                }
             };
 
             const colorClasses = {
@@ -631,6 +559,7 @@
 
             const handleDragStart = (e, playerId) => {
                 e.dataTransfer.setData('text/plain', playerId.toString());
+                e.dataTransfer.effectAllowed = 'move';
             };
 
             const handleMoveToOrange = async (playerId) => {
@@ -667,7 +596,6 @@
                             ) :
                             React.createElement('div', { className: "flex flex-wrap gap-2" },
                                 availablePlayers.map((player) =>
-                                    // FIX: Added key prop to fix React warning
                                     React.createElement('div', {
                                         key: player.id,
                                         draggable: true,
@@ -714,28 +642,17 @@
             );
         }
 
-        // FIX: Updated to use createRoot for React 18
+        // Initialize the app
         const rootElement = document.getElementById('root');
         const root = ReactDOM.createRoot(rootElement);
         root.render(React.createElement(App));
+
+        // iOS Fullscreen Mode
+        if (window.navigator.standalone) {
+            document.documentElement.style.setProperty('--safari-bar-height', '0px');
+        } else {
+            document.documentElement.style.setProperty('--safari-bar-height', 'env(safe-area-inset-bottom)');
+        }
     </script>
-
-<script>
-// iOS Fullscreen Mode
-if (window.navigator.standalone) {
-  document.documentElement.style.setProperty('--safari-bar-height', '0px');
-} else {
-  document.documentElement.style.setProperty('--safari-bar-height', 'env(safe-area-inset-bottom)');
-}
-
-// Detect when added to homescreen
-window.addEventListener('DOMContentLoaded', () => {
-  if (window.matchMedia('(display-mode: standalone)').matches) {
-    console.log("Running in PWA mode");
-  }
-});
-</script>
-
-
 </body>
 </html>
