@@ -1,4 +1,10 @@
 import React, { createContext, useContext, useReducer, useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase client with your actual credentials
+const supabaseUrl = 'https://rqpcxbzfvufekaihnmct.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcGN4YnpmdnVmZWthaWhubWN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMzA4NTAsImV4cCI6MjA2NDgwNjg1MH0.mo6COppydSth-qsLGmREFP1yETVpGH1f3CBXbhKDs4M';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // State Management with Context
 const AppContext = createContext();
@@ -6,44 +12,43 @@ const AppContext = createContext();
 const initialState = {
   players: [],
   orangeTeam: [],
-  greenTeam: []
+  greenTeam: [],
+  loading: false,
+  error: null
 };
 
 function appReducer(state, action) {
   switch (action.type) {
-    case 'ADD_PLAYER':
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, loading: false };
+    case 'SET_PLAYERS':
+      return { ...state, players: action.payload, loading: false };
+    case 'SET_TEAMS':
+      return { 
+        ...state, 
+        orangeTeam: action.payload.orange,
+        greenTeam: action.payload.green,
+        loading: false 
+      };
+    case 'ADD_PLAYER_LOCAL':
       return {
         ...state,
-        players: [...state.players, { id: Date.now(), name: action.payload }]
+        players: [...state.players, action.payload]
       };
-    case 'REMOVE_PLAYER':
+    case 'REMOVE_PLAYER_LOCAL':
       return {
         ...state,
         players: state.players.filter(p => p.id !== action.payload),
         orangeTeam: state.orangeTeam.filter(p => p.id !== action.payload),
         greenTeam: state.greenTeam.filter(p => p.id !== action.payload)
       };
-    case 'MOVE_TO_ORANGE':
-      const playerForOrange = state.players.find(p => p.id === action.payload);
-      if (!playerForOrange) return state;
+    case 'UPDATE_TEAMS_LOCAL':
       return {
         ...state,
-        orangeTeam: [...state.orangeTeam.filter(p => p.id !== action.payload), playerForOrange],
-        greenTeam: state.greenTeam.filter(p => p.id !== action.payload)
-      };
-    case 'MOVE_TO_GREEN':
-      const playerForGreen = state.players.find(p => p.id === action.payload);
-      if (!playerForGreen) return state;
-      return {
-        ...state,
-        greenTeam: [...state.greenTeam.filter(p => p.id !== action.payload), playerForGreen],
-        orangeTeam: state.orangeTeam.filter(p => p.id !== action.payload)
-      };
-    case 'REMOVE_FROM_TEAM':
-      return {
-        ...state,
-        orangeTeam: state.orangeTeam.filter(p => p.id !== action.payload),
-        greenTeam: state.greenTeam.filter(p => p.id !== action.payload)
+        orangeTeam: action.payload.orange,
+        greenTeam: action.payload.green
       };
     default:
       return state;
@@ -53,8 +58,137 @@ function appReducer(state, action) {
 function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   
+  // Load data on app start
+  useEffect(() => {
+    loadPlayers();
+    loadTeams();
+  }, []);
+
+  const loadPlayers = async () => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      dispatch({ type: 'SET_PLAYERS', payload: data || [] });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      console.error('Error loading players:', error);
+    }
+  };
+
+  const loadTeams = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teams')
+        .select(`
+          player_id,
+          team_color,
+          players (id, name)
+        `);
+      
+      if (error) throw error;
+      
+      const orange = data?.filter(t => t.team_color === 'orange').map(t => t.players) || [];
+      const green = data?.filter(t => t.team_color === 'green').map(t => t.players) || [];
+      
+      dispatch({ type: 'SET_TEAMS', payload: { orange, green } });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      console.error('Error loading teams:', error);
+    }
+  };
+
+  const addPlayer = async (name) => {
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .insert([{ name }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      dispatch({ type: 'ADD_PLAYER_LOCAL', payload: data });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      console.error('Error adding player:', error);
+    }
+  };
+
+  const removePlayer = async (playerId) => {
+    try {
+      // Remove from teams first
+      await supabase
+        .from('teams')
+        .delete()
+        .eq('player_id', playerId);
+      
+      // Then remove player
+      const { error } = await supabase
+        .from('players')
+        .delete()
+        .eq('id', playerId);
+      
+      if (error) throw error;
+      dispatch({ type: 'REMOVE_PLAYER_LOCAL', payload: playerId });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      console.error('Error removing player:', error);
+    }
+  };
+
+  const moveToTeam = async (playerId, teamColor) => {
+    try {
+      // Remove from any existing team
+      await supabase
+        .from('teams')
+        .delete()
+        .eq('player_id', playerId);
+      
+      // Add to new team
+      const { error } = await supabase
+        .from('teams')
+        .insert([{ player_id: playerId, team_color: teamColor }]);
+      
+      if (error) throw error;
+      
+      // Reload teams to get updated state
+      await loadTeams();
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      console.error('Error moving player to team:', error);
+    }
+  };
+
+  const removeFromTeam = async (playerId) => {
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .delete()
+        .eq('player_id', playerId);
+      
+      if (error) throw error;
+      await loadTeams();
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      console.error('Error removing from team:', error);
+    }
+  };
+  
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ 
+      state, 
+      dispatch,
+      addPlayer,
+      removePlayer,
+      moveToTeam,
+      removeFromTeam,
+      loadPlayers,
+      loadTeams
+    }}>
       {children}
     </AppContext.Provider>
   );
@@ -106,20 +240,36 @@ function TabBar({ activeTab, onTabChange }) {
   );
 }
 
+function ErrorBanner({ error, onDismiss }) {
+  if (!error) return null;
+  
+  return (
+    <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 mx-4 mt-4 rounded-lg flex justify-between items-center">
+      <span>{error}</span>
+      <button 
+        onClick={onDismiss}
+        className="text-red-400 hover:text-red-200 ml-4"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 function AddRemoveTab() {
-  const { state, dispatch } = useApp();
+  const { state, addPlayer, removePlayer, dispatch } = useApp();
   const [inputValue, setInputValue] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (inputValue.trim()) {
-      dispatch({ type: 'ADD_PLAYER', payload: inputValue.trim() });
+      await addPlayer(inputValue.trim());
       setInputValue('');
     }
   };
 
-  const handleRemovePlayer = (id) => {
-    dispatch({ type: 'REMOVE_PLAYER', payload: id });
+  const handleRemovePlayer = async (id) => {
+    await removePlayer(id);
   };
 
   const handleKeyPress = (e) => {
@@ -130,6 +280,11 @@ function AddRemoveTab() {
 
   return (
     <div className="p-4 max-w-md mx-auto">
+      <ErrorBanner 
+        error={state.error} 
+        onDismiss={() => dispatch({ type: 'SET_ERROR', payload: null })} 
+      />
+      
       <div className="mb-6">
         <div className="flex gap-2">
           <input
@@ -138,13 +293,15 @@ function AddRemoveTab() {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Enter player name"
-            className="flex-1 px-4 py-3 bg-gray-800 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            disabled={state.loading}
+            className="flex-1 px-4 py-3 bg-gray-800 text-white border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             onClick={handleSubmit}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            disabled={state.loading || !inputValue.trim()}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Add
+            {state.loading ? '...' : 'Add'}
           </button>
         </div>
       </div>
@@ -153,7 +310,9 @@ function AddRemoveTab() {
         <h2 className="text-white text-lg font-semibold mb-3">
           Players ({state.players.length})
         </h2>
-        {state.players.length === 0 ? (
+        {state.loading ? (
+          <p className="text-gray-400 text-center py-8">Loading...</p>
+        ) : state.players.length === 0 ? (
           <p className="text-gray-400 text-center py-8 italic">
             No players yet. Add some names above!
           </p>
@@ -235,22 +394,22 @@ function DragDropTeam({ team, teamColor, onDrop, onRemove, title }) {
 }
 
 function TeamsTab() {
-  const { state, dispatch } = useApp();
+  const { state, moveToTeam, removeFromTeam, dispatch } = useApp();
 
   const handleDragStart = (e, playerId) => {
     e.dataTransfer.setData('text/plain', playerId.toString());
   };
 
-  const handleMoveToOrange = (playerId) => {
-    dispatch({ type: 'MOVE_TO_ORANGE', payload: playerId });
+  const handleMoveToOrange = async (playerId) => {
+    await moveToTeam(playerId, 'orange');
   };
 
-  const handleMoveToGreen = (playerId) => {
-    dispatch({ type: 'MOVE_TO_GREEN', payload: playerId });
+  const handleMoveToGreen = async (playerId) => {
+    await moveToTeam(playerId, 'green');
   };
 
-  const handleRemoveFromTeam = (playerId) => {
-    dispatch({ type: 'REMOVE_FROM_TEAM', payload: playerId });
+  const handleRemoveFromTeam = async (playerId) => {
+    await removeFromTeam(playerId);
   };
 
   const availablePlayers = state.players.filter(
@@ -260,12 +419,19 @@ function TeamsTab() {
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
+      <ErrorBanner 
+        error={state.error} 
+        onDismiss={() => dispatch({ type: 'SET_ERROR', payload: null })} 
+      />
+      
       {/* Available Players */}
       <div className="mb-6">
         <h2 className="text-white text-lg font-semibold mb-3">
           Available Players ({availablePlayers.length})
         </h2>
-        {availablePlayers.length === 0 ? (
+        {state.loading ? (
+          <p className="text-gray-400 text-center py-4">Loading...</p>
+        ) : availablePlayers.length === 0 ? (
           <p className="text-gray-400 text-center py-4 italic">
             {state.players.length === 0 ? 'No players added yet. Go to Add/Remove tab to add players.' : 'All players are assigned to teams'}
           </p>
@@ -308,22 +474,6 @@ function TeamsTab() {
 
 function App() {
   const [activeTab, setActiveTab] = useState('add-remove');
-
-  // PWA Install prompt
-  useEffect(() => {
-    let deferredPrompt;
-    
-    const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
 
   return (
     <AppProvider>
