@@ -11,10 +11,16 @@
     
     <!-- PWA Configuration -->
     <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#111827"> <!-- Add theme-color for Android -->
+    
+    <!-- iOS Configuration -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="كرة - الاحد">
     <link rel="apple-touch-icon" href="/icon.png">
-    <meta name="theme-color" content="#111827">
+    
+    <!-- Android Configuration -->
+    <meta name="mobile-web-app-capable" content="yes"> <!-- Add for Android -->
+    <meta name="application-name" content="كرة - الاحد"> <!-- Android app name -->
     
     <style>
         body {
@@ -72,6 +78,24 @@
 </head>
 <body>
     <div id="root"></div>
+
+    <!-- Add this script to handle Android fullscreen -->
+    <script>
+        // Android fullscreen handling
+        if (window.matchMedia('(display-mode: standalone)').matches || 
+            window.matchMedia('(display-mode: fullscreen)').matches) {
+            document.documentElement.style.setProperty('--safari-bar-height', '0px');
+        } else {
+            document.documentElement.style.setProperty('--safari-bar-height', 'env(safe-area-inset-bottom)');
+        }
+        
+        // Add beforeinstallprompt handler for better Android PWA installation
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+    </script>
 
     <script type="text/babel">
         const { createContext, useContext, useReducer, useState, useEffect, useRef } = React;
