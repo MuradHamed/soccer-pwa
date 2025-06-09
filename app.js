@@ -45,7 +45,6 @@ const supabase = {
             select: () => ({
                 single: () => ({
                     then: async (callback) => {
-                        console.log(`Inserting into ${table}:`, data);
                         try {
                             const response = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
                                 method: 'POST',
@@ -57,7 +56,6 @@ const supabase = {
                                 },
                                 body: JSON.stringify(data[0])
                             });
-                            console.log('Insert response:', response);
                             const result = await response.json();
                             const playerData = Array.isArray(result) && result.length > 0 ? result[0] : result;
                             callback({ 
@@ -79,7 +77,6 @@ const supabase = {
                         return;
                     }
                     try {
-                        console.log(`Deleting from ${table} where ${column}=${value}`);
                         const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${column}=eq.${value}`, {
                             method: 'DELETE',
                             headers: {
@@ -88,7 +85,6 @@ const supabase = {
                                 'Content-Type': 'application/json'
                             }
                         });
-                        console.log('Delete response:', response);
                         callback({ error: response.ok ? null : await response.json() });
                     } catch (error) {
                         callback({ error });
@@ -152,57 +148,58 @@ function AppProvider({ children }) {
     const [state, dispatch] = useReducer(appReducer, initialState);
     
     const loadData = async () => {
-    try {
-        dispatch({ type: 'SET_LOADING', payload: true });
-        
-        // Load players
-        const { data: players, error: playersError } = await new Promise(resolve => {
-            supabase
-                .from('players')
-                .select('*')
-                .order('created_at', { ascending: true })
-                .then(resolve);
-        });
-        
-        if (playersError) throw playersError;
-        
-        // Load teams
-        const { data: teams, error: teamsError } = await new Promise(resolve => {
-            supabase
-                .from('teams')
-                .select('player_id, team_color')
-                .then(resolve);
-        });
-        
-        if (teamsError) throw teamsError;
-        
-        // Organize teams - ensure proper ID matching
-        const orangeTeam = [];
-        const greenTeam = [];
-        
-        teams?.forEach(team => {
-            // Find player with matching ID (convert both to numbers)
-            const player = players?.find(p => 
-                Number(p.id) === Number(team.player_id)
-            );
+        try {
+            dispatch({ type: 'SET_LOADING', payload: true });
             
-            if (player) {
-                if (team.team_color === 'orange') {
-                    orangeTeam.push(player);
-                } else if (team.team_color === 'green') {
-                    greenTeam.push(player);
+            // Load players
+            const { data: players, error: playersError } = await new Promise(resolve => {
+                supabase
+                    .from('players')
+                    .select('*')
+                    .order('created_at', { ascending: true })
+                    .then(resolve);
+            });
+            
+            if (playersError) throw playersError;
+            
+            // Load teams with explicit columns
+            const { data: teams, error: teamsError } = await new Promise(resolve => {
+                supabase
+                    .from('teams')
+                    .select('player_id, team_color')
+                    .then(resolve);
+            });
+            
+            if (teamsError) throw teamsError;
+            
+            console.log('Loaded data:', { players, teams }); // Debug log
+            
+            // Organize teams
+            const orangeTeam = [];
+            const greenTeam = [];
+            
+            teams?.forEach(team => {
+                const player = players?.find(p => Number(p.id) === Number(team.player_id));
+                if (player) {
+                    if (team.team_color === 'orange') {
+                        orangeTeam.push(player);
+                    } else if (team.team_color === 'green') {
+                        greenTeam.push(player);
+                    }
                 }
-            }
-        });
+            });
 
-        dispatch({ type: 'SET_PLAYERS', payload: players || [] });
-        dispatch({ type: 'SET_TEAMS', payload: { orange: orangeTeam, green: greenTeam } });
-        
-    } catch (error) {
-        console.error('Error loading data:', error);
-        dispatch({ type: 'SET_ERROR', payload: `Database error: ${error.message}` });
-    }
-};
+            console.log('Organized teams:', { orangeTeam, greenTeam }); // Debug log
+            
+            dispatch({ type: 'SET_PLAYERS', payload: players || [] });
+            dispatch({ type: 'SET_TEAMS', payload: { orange: orangeTeam, green: greenTeam } });
+            
+        } catch (error) {
+            console.error('Error loading data:', error);
+            dispatch({ type: 'SET_ERROR', payload: `Database error: ${error.message}` });
+        }
+    };
+
     useEffect(() => {
         loadData();
     }, []);
@@ -216,20 +213,11 @@ function AppProvider({ children }) {
                 .single();
             
             if (error) throw error;
-            
             dispatch({ type: 'ADD_PLAYER_LOCAL', payload: data });
             
         } catch (error) {
-            dispatch({ type: 'SET_ERROR', payload: error.message });
             console.error('Error adding player:', error);
-            
-            const newPlayer = { 
-                id: Date.now(), 
-                name: name,
-                created_at: new Date().toISOString() 
-            };
-            
-            dispatch({ type: 'ADD_PLAYER_LOCAL', payload: newPlayer });
+            dispatch({ type: 'SET_ERROR', payload: error.message });
         }
     };
 
@@ -240,68 +228,86 @@ function AppProvider({ children }) {
         }
         
         try {
+            // Delete from teams first due to foreign key constraint
             await supabase.from('teams').delete().eq('player_id', playerId);
-            
             const { error } = await supabase.from('players').delete().eq('id', playerId);
-            if (error) throw error;
             
+            if (error) throw error;
             dispatch({ type: 'REMOVE_PLAYER_LOCAL', payload: playerId });
             
         } catch (error) {
-            dispatch({ type: 'SET_ERROR', payload: error.message });
             console.error('Error removing player:', error);
-            
-            dispatch({ type: 'REMOVE_PLAYER_LOCAL', payload: playerId });
+            dispatch({ type: 'SET_ERROR', payload: error.message });
         }
     };
 
-const moveToTeam = async (playerId, teamColor) => {
-    try {
-        // Convert to number if needed
-        const numericPlayerId = Number(playerId);
-        const player = state.players.find(p => p.id === numericPlayerId);
-        if (!player) return;
-
-        // Upsert team assignment (update or create)
-        const { error } = await new Promise(resolve => {
-            supabase
-                .from('teams')
-                .upsert(
-                    { 
-                        player_id: numericPlayerId, 
-                        team_color: teamColor 
-                    },
-                    { onConflict: 'player_id' }  // Update if exists
-                )
-                .then(resolve);
-        });
-
-        if (error) throw error;
-
-        // Update local state
-        let updatedOrange = [...state.orangeTeam];
-        let updatedGreen = [...state.greenTeam];
-
-        // Remove from all teams
-        updatedOrange = updatedOrange.filter(p => p.id !== numericPlayerId);
-        updatedGreen = updatedGreen.filter(p => p.id !== numericPlayerId);
-
-        // Add to selected team
-        if (teamColor === 'orange') {
-            updatedOrange.push(player);
-        } else {
-            updatedGreen.push(player);
+    const moveToTeam = async (playerId, teamColor) => {
+        if (!playerId) {
+            console.error('Invalid player ID');
+            return;
         }
 
-        dispatch({ 
-            type: 'UPDATE_TEAMS_LOCAL', 
-            payload: { orange: updatedOrange, green: updatedGreen } 
-        });
-    } catch (error) {
-        console.error('Error moving player to team:', error);
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to save team assignment' });
-    }
-};
+        try {
+            const numericPlayerId = Number(playerId);
+            console.log('Starting team move:', { playerId: numericPlayerId, teamColor });
+
+            // Delete existing team assignment
+            await new Promise((resolve) => {
+                supabase
+                    .from('teams')
+                    .delete()
+                    .eq('player_id', numericPlayerId)
+                    .then(resolve);
+            });
+
+            // Create new team assignment
+            const { error: insertError } = await new Promise((resolve) => {
+                supabase
+                    .from('teams')
+                    .insert([{
+                        player_id: numericPlayerId,
+                        team_color: teamColor
+                    }])
+                    .then(resolve);
+            });
+
+            if (insertError) throw insertError;
+
+            // Update local state
+            const player = state.players.find(p => p.id === numericPlayerId);
+            if (!player) {
+                throw new Error('Player not found in local state');
+            }
+
+            const updatedOrange = state.orangeTeam.filter(p => p.id !== numericPlayerId);
+            const updatedGreen = state.greenTeam.filter(p => p.id !== numericPlayerId);
+
+            if (teamColor === 'orange') {
+                updatedOrange.push(player);
+            } else if (teamColor === 'green') {
+                updatedGreen.push(player);
+            }
+
+            dispatch({
+                type: 'UPDATE_TEAMS_LOCAL',
+                payload: { 
+                    orange: updatedOrange, 
+                    green: updatedGreen 
+                }
+            });
+
+            console.log('Successfully updated team:', {
+                playerId: numericPlayerId,
+                teamColor,
+                orangeTeamSize: updatedOrange.length,
+                greenTeamSize: updatedGreen.length
+            });
+
+        } catch (error) {
+            console.error('Error moving player to team:', error);
+            dispatch({ type: 'SET_ERROR', payload: 'Failed to save team assignment' });
+        }
+    };
 
     const removeFromTeam = async (playerId) => {
         if (!playerId) {
@@ -310,9 +316,13 @@ const moveToTeam = async (playerId, teamColor) => {
         }
         
         try {
-            const numericPlayerId = typeof playerId === 'string' ? parseInt(playerId) : playerId;
+            const numericPlayerId = Number(playerId);
             
-            const { error } = await supabase.from('teams').delete().eq('player_id', numericPlayerId);
+            const { error } = await supabase
+                .from('teams')
+                .delete()
+                .eq('player_id', numericPlayerId);
+
             if (error) throw error;
             
             const updatedOrange = state.orangeTeam.filter(p => p.id !== numericPlayerId);
@@ -324,8 +334,8 @@ const moveToTeam = async (playerId, teamColor) => {
             });
             
         } catch (error) {
-            dispatch({ type: 'SET_ERROR', payload: error.message });
             console.error('Error removing from team:', error);
+            dispatch({ type: 'SET_ERROR', payload: error.message });
         }
     };
     
@@ -349,6 +359,7 @@ function useApp() {
     }
     return context;
 }
+
 
 // Pull to Refresh Component
 function PullToRefresh({ onRefresh, children }) {
