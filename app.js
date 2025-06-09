@@ -239,69 +239,78 @@ function AppProvider({ children }) {
             dispatch({ type: 'SET_ERROR', payload: error.message });
         }
     };
+const moveToTeam = async (playerId, teamColor) => {
+    if (!playerId) {
+        console.error('Invalid player ID');
+        return;
+    }
 
-    const moveToTeam = async (playerId, teamColor) => {
-        if (!playerId) {
-            console.error('Invalid player ID');
-            return;
+    try {
+        const numericPlayerId = Number(playerId);
+        console.log('Starting team assignment:', { playerId: numericPlayerId, teamColor });
+
+        // Use UPSERT with the unique constraint on player_id
+        const response = await fetch(`${supabaseUrl}/rest/v1/teams`, {
+            method: 'POST',
+            headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'merge-duplicates'  // This tells Supabase to update if exists
+            },
+            body: JSON.stringify({
+                player_id: numericPlayerId,
+                team_color: teamColor
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Database error:', errorText);
+            throw new Error('Failed to save team assignment');
         }
 
-        try {
-            const numericPlayerId = Number(playerId);
-            console.log('Moving player:', { playerId: numericPlayerId, to: teamColor });
+        const result = await response.json();
+        console.log('Database update successful:', result);
 
-            // Simple direct insert - just like manual insert
-            const insertResponse = await fetch(`${supabaseUrl}/rest/v1/teams`, {
-                method: 'POST',
-                headers: {
-                    'apikey': supabaseKey,
-                    'Authorization': `Bearer ${supabaseKey}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates'
-                },
-                body: JSON.stringify({
-                    player_id: numericPlayerId,
-                    team_color: teamColor
-                })
-            });
-
-            if (!insertResponse.ok) {
-                const errorText = await insertResponse.text();
-                console.error('Insert failed:', errorText);
-                throw new Error('Failed to save team assignment');
-            }
-
-            const result = await insertResponse.json();
-            console.log('Team assignment saved:', result);
-
-            // Update local state
-            const player = state.players.find(p => p.id === numericPlayerId);
-            if (!player) {
-                throw new Error('Player not found');
-            }
-
-            const updatedOrange = state.orangeTeam.filter(p => p.id !== numericPlayerId);
-            const updatedGreen = state.greenTeam.filter(p => p.id !== numericPlayerId);
-
-            if (teamColor === 'orange') {
-                updatedOrange.push(player);
-            } else if (teamColor === 'green') {
-                updatedGreen.push(player);
-            }
-
-            dispatch({
-                type: 'UPDATE_TEAMS_LOCAL',
-                payload: { 
-                    orange: updatedOrange, 
-                    green: updatedGreen 
-                }
-            });
-
-        } catch (error) {
-            console.error('Error moving player:', error);
-            dispatch({ type: 'SET_ERROR', payload: 'Failed to save team assignment' });
+        // Update local state
+        const player = state.players.find(p => p.id === numericPlayerId);
+        if (!player) {
+            throw new Error('Player not found in local state');
         }
-    };
+
+        // Create new arrays for team updates
+        const updatedOrange = [...state.orangeTeam.filter(p => p.id !== numericPlayerId)];
+        const updatedGreen = [...state.greenTeam.filter(p => p.id !== numericPlayerId)];
+
+        // Add to appropriate team
+        if (teamColor === 'orange') {
+            updatedOrange.push(player);
+        } else if (teamColor === 'green') {
+            updatedGreen.push(player);
+        }
+
+        // Update local state
+        dispatch({
+            type: 'UPDATE_TEAMS_LOCAL',
+            payload: { 
+                orange: updatedOrange, 
+                green: updatedGreen 
+            }
+        });
+
+        console.log('Local state updated:', {
+            player: player.name,
+            team: teamColor,
+            orangeSize: updatedOrange.length,
+            greenSize: updatedGreen.length
+        });
+
+    } catch (error) {
+        console.error('Error in moveToTeam:', error);
+        dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+};
 
     const removeFromTeam = async (playerId) => {
         if (!playerId) {
