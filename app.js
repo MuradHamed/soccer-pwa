@@ -172,7 +172,7 @@ function AppProvider({ children }) {
             
             if (teamsError) throw teamsError;
             
-            console.log('Loaded data:', { players, teams }); // Debug log
+            console.log('Loaded data:', { players, teams });
             
             // Organize teams
             const orangeTeam = [];
@@ -189,7 +189,7 @@ function AppProvider({ children }) {
                 }
             });
 
-            console.log('Organized teams:', { orangeTeam, greenTeam }); // Debug log
+            console.log('Organized teams:', { orangeTeam, greenTeam });
             
             dispatch({ type: 'SET_PLAYERS', payload: players || [] });
             dispatch({ type: 'SET_TEAMS', payload: { orange: orangeTeam, green: greenTeam } });
@@ -228,7 +228,6 @@ function AppProvider({ children }) {
         }
         
         try {
-            // Delete from teams first due to foreign key constraint
             await supabase.from('teams').delete().eq('player_id', playerId);
             const { error } = await supabase.from('players').delete().eq('id', playerId);
             
@@ -249,34 +248,36 @@ function AppProvider({ children }) {
 
         try {
             const numericPlayerId = Number(playerId);
-            console.log('Starting team move:', { playerId: numericPlayerId, teamColor });
+            console.log('Moving player:', { playerId: numericPlayerId, to: teamColor });
 
-            // Delete existing team assignment
-            await new Promise((resolve) => {
-                supabase
-                    .from('teams')
-                    .delete()
-                    .eq('player_id', numericPlayerId)
-                    .then(resolve);
+            // Simple direct insert - just like manual insert
+            const insertResponse = await fetch(`${supabaseUrl}/rest/v1/teams`, {
+                method: 'POST',
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({
+                    player_id: numericPlayerId,
+                    team_color: teamColor
+                })
             });
 
-            // Create new team assignment
-            const { error: insertError } = await new Promise((resolve) => {
-                supabase
-                    .from('teams')
-                    .insert([{
-                        player_id: numericPlayerId,
-                        team_color: teamColor
-                    }])
-                    .then(resolve);
-            });
+            if (!insertResponse.ok) {
+                const errorText = await insertResponse.text();
+                console.error('Insert failed:', errorText);
+                throw new Error('Failed to save team assignment');
+            }
 
-            if (insertError) throw insertError;
+            const result = await insertResponse.json();
+            console.log('Team assignment saved:', result);
 
             // Update local state
             const player = state.players.find(p => p.id === numericPlayerId);
             if (!player) {
-                throw new Error('Player not found in local state');
+                throw new Error('Player not found');
             }
 
             const updatedOrange = state.orangeTeam.filter(p => p.id !== numericPlayerId);
@@ -296,15 +297,8 @@ function AppProvider({ children }) {
                 }
             });
 
-            console.log('Successfully updated team:', {
-                playerId: numericPlayerId,
-                teamColor,
-                orangeTeamSize: updatedOrange.length,
-                greenTeamSize: updatedGreen.length
-            });
-
         } catch (error) {
-            console.error('Error moving player to team:', error);
+            console.error('Error moving player:', error);
             dispatch({ type: 'SET_ERROR', payload: 'Failed to save team assignment' });
         }
     };
@@ -359,7 +353,6 @@ function useApp() {
     }
     return context;
 }
-
 
 // Pull to Refresh Component
 function PullToRefresh({ onRefresh, children }) {
