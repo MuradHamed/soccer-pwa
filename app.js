@@ -239,78 +239,90 @@ function AppProvider({ children }) {
             dispatch({ type: 'SET_ERROR', payload: error.message });
         }
     };
-const moveToTeam = async (playerId, teamColor) => {
-    if (!playerId) {
-        console.error('Invalid player ID');
-        return;
-    }
 
-    try {
-        const numericPlayerId = Number(playerId);
-        console.log('Starting team assignment:', { playerId: numericPlayerId, teamColor });
-
-        // Use UPSERT with the unique constraint on player_id
-        const response = await fetch(`${supabaseUrl}/rest/v1/teams`, {
-            method: 'POST',
-            headers: {
-                'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'merge-duplicates'  // This tells Supabase to update if exists
-            },
-            body: JSON.stringify({
-                player_id: numericPlayerId,
-                team_color: teamColor
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Database error:', errorText);
-            throw new Error('Failed to save team assignment');
+    const moveToTeam = async (playerId, teamColor) => {
+        if (!playerId) {
+            console.error('Invalid player ID');
+            return;
         }
 
-        const result = await response.json();
-        console.log('Database update successful:', result);
+        try {
+            const numericPlayerId = Number(playerId);
+            console.log('Moving player:', { playerId: numericPlayerId, to: teamColor });
 
-        // Update local state
-        const player = state.players.find(p => p.id === numericPlayerId);
-        if (!player) {
-            throw new Error('Player not found in local state');
-        }
+            // First delete any existing assignment
+            const deleteResponse = await fetch(`${supabaseUrl}/rest/v1/teams?player_id=eq.${numericPlayerId}`, {
+                method: 'DELETE',
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-        // Create new arrays for team updates
-        const updatedOrange = [...state.orangeTeam.filter(p => p.id !== numericPlayerId)];
-        const updatedGreen = [...state.greenTeam.filter(p => p.id !== numericPlayerId)];
-
-        // Add to appropriate team
-        if (teamColor === 'orange') {
-            updatedOrange.push(player);
-        } else if (teamColor === 'green') {
-            updatedGreen.push(player);
-        }
-
-        // Update local state
-        dispatch({
-            type: 'UPDATE_TEAMS_LOCAL',
-            payload: { 
-                orange: updatedOrange, 
-                green: updatedGreen 
+            if (!deleteResponse.ok) {
+                console.error('Delete failed:', await deleteResponse.text());
             }
-        });
 
-        console.log('Local state updated:', {
-            player: player.name,
-            team: teamColor,
-            orangeSize: updatedOrange.length,
-            greenSize: updatedGreen.length
-        });
+            // Insert new team assignment
+            const insertResponse = await fetch(`${supabaseUrl}/rest/v1/teams`, {
+                method: 'POST',
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify({
+                    player_id: numericPlayerId,
+                    team_color: teamColor
+                })
+            });
 
-    } catch (error) {
-        console.error('Error in moveToTeam:', error);
-        dispatch({ type: 'SET_ERROR', payload: error.message });
-    }
-};
+            if (!insertResponse.ok) {
+                const errorText = await insertResponse.text();
+                console.error('Insert failed:', errorText);
+                throw new Error('Failed to save team assignment');
+            }
+
+            const result = await insertResponse.json();
+            console.log('Team assignment saved:', result);
+
+            // Update local state
+            const player = state.players.find(p => p.id === numericPlayerId);
+            if (!player) {
+                throw new Error('Player not found');
+            }
+
+            const updatedOrange = state.orangeTeam.filter(p => p.id !== numericPlayerId);
+            const updatedGreen = state.greenTeam.filter(p => p.id !== numericPlayerId);
+
+            if (teamColor === 'orange') {
+                updatedOrange.push(player);
+            } else if (teamColor === 'green') {
+                updatedGreen.push(player);
+            }
+
+            dispatch({
+                type: 'UPDATE_TEAMS_LOCAL',
+                payload: { 
+                    orange: updatedOrange, 
+                    green: updatedGreen 
+                }
+            });
+
+            console.log('Local state updated:', {
+                player: player.name,
+                team: teamColor,
+                orangeSize: updatedOrange.length,
+                greenSize: updatedGreen.length
+            });
+
+        } catch (error) {
+            console.error('Error moving player:', error);
+            dispatch({ type: 'SET_ERROR', payload: 'Failed to save team assignment' });
+        }
+    };
 
     const removeFromTeam = async (playerId) => {
         if (!playerId) {
@@ -363,7 +375,7 @@ function useApp() {
     return context;
 }
 
-// Pull to Refresh Component
+// Components
 function PullToRefresh({ onRefresh, children }) {
     const { state } = useApp();
     const [pullState, setPullState] = useState({ 
@@ -428,10 +440,16 @@ function PullToRefresh({ onRefresh, children }) {
         }
     };
     
-    const arrowSvg = React.createElement('svg', { viewBox: "0 0 24 24" },
+    const arrowSvg = React.createElement('svg', {
+        viewBox: "0 0 24 24",
+        className: "w-6 h-6 stroke-current",
+        fill: "none",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round"
+    },
         React.createElement('path', { d: "M12 5v14" }),
-        React.createElement('path', { d: "M19 12l-7 7" }),
-        React.createElement('path', { d: "M5 12l7-7" })
+        React.createElement('path', { d: "M19 12l-7 7-7-7" })
     );
     
     return React.createElement('div', {
@@ -458,7 +476,6 @@ function PullToRefresh({ onRefresh, children }) {
     );
 }
 
-// Components
 function NavBar() {
     return React.createElement('nav', {
         className: "bg-gray-900 border-b border-gray-700 px-4 py-3"
@@ -583,6 +600,7 @@ function AddRemoveTab() {
 
 function DragDropTeam({ team, teamColor, onDrop, onRemove, title }) {
     const [dragOver, setDragOver] = useState(false);
+    const [touchStartData, setTouchStartData] = useState(null);
 
     const handleDragOver = (e) => {
         e.preventDefault();
@@ -598,9 +616,46 @@ function DragDropTeam({ team, teamColor, onDrop, onRemove, title }) {
     const handleDrop = (e) => {
         e.preventDefault();
         setDragOver(false);
-        const playerId = parseInt(e.dataTransfer.getData('text/plain'));
-        if (!isNaN(playerId)) {
-            onDrop(playerId);
+        const playerId = e.dataTransfer.getData('text/plain');
+        console.log('Drop event:', { playerId, teamColor });
+        
+        if (playerId) {
+            const numericPlayerId = parseInt(playerId, 10);
+            if (!isNaN(numericPlayerId)) {
+                onDrop(numericPlayerId);
+            }
+        }
+    };
+
+    const handleTouchStart = (e, playerId) => {
+        setTouchStartData({
+            playerId,
+            startX: e.touches[0].clientX,
+            startY: e.touches[0].clientY,
+            moved: false
+        });
+    };
+
+    const handleTouchMove = (e) => {
+        if (touchStartData) {
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - touchStartData.startX;
+            const deltaY = touch.clientY - touchStartData.startY;
+            
+            // If moved more than 10px, mark as moved
+            if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+                setTouchStartData(prev => ({ ...prev, moved: true }));
+            }
+        }
+    };
+
+    const handleTouchEnd = (e, playerId) => {
+        if (touchStartData) {
+            if (!touchStartData.moved) {
+                // If didn't move, treat as a tap/click
+                onRemove(playerId);
+            }
+            setTouchStartData(null);
         }
     };
 
@@ -610,7 +665,8 @@ function DragDropTeam({ team, teamColor, onDrop, onRemove, title }) {
     };
 
     return React.createElement('div', {
-        className: `flex-1 min-h-64 p-4 border-2 border-dashed rounded-lg transition-colors ${colorClasses[teamColor]}`,
+        className: `team-dropzone team-${teamColor} flex-1 min-h-64 p-4 border-2 border-dashed rounded-lg transition-colors ${colorClasses[teamColor]}`,
+        'data-team': teamColor,
         onDragOver: handleDragOver,
         onDragLeave: handleDragLeave,
         onDrop: handleDrop
@@ -622,8 +678,10 @@ function DragDropTeam({ team, teamColor, onDrop, onRemove, title }) {
             team.map((player) =>
                 React.createElement('div', {
                     key: player.id,
-                    className: "p-2 bg-gray-800 rounded text-white text-center cursor-pointer hover:bg-gray-700 transition-colors relative group",
-                    onClick: () => onRemove(player.id)
+                    className: "p-2 bg-gray-800 rounded text-white text-center transition-colors relative group",
+                    onTouchStart: (e) => handleTouchStart(e, player.id),
+                    onTouchMove: handleTouchMove,
+                    onTouchEnd: (e) => handleTouchEnd(e, player.id)
                 },
                     player.name,
                     React.createElement('span', {
@@ -641,21 +699,47 @@ function DragDropTeam({ team, teamColor, onDrop, onRemove, title }) {
 
 function TeamsTab() {
     const { state, moveToTeam, removeFromTeam, dispatch, loadData } = useApp();
+    const [isDragging, setIsDragging] = useState(false);
 
     const handleDragStart = (e, playerId) => {
+        console.log('Drag start:', playerId);
         e.dataTransfer.setData('text/plain', playerId.toString());
         e.dataTransfer.effectAllowed = 'move';
+        setIsDragging(true);
+
+        // Add dragging class to body
+        document.body.classList.add('dragging');
+        
+        // Create custom drag image
+        const dragImage = document.createElement('div');
+        dragImage.className = 'drag-image';
+        dragImage.textContent = state.players.find(p => p.id === playerId)?.name || '';
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 0, 0);
+        
+        // Remove drag image after drag starts
+        requestAnimationFrame(() => {
+            document.body.removeChild(dragImage);
+        });
+    };
+
+    const handleDragEnd = () => {
+        setIsDragging(false);
+        document.body.classList.remove('dragging');
     };
 
     const handleMoveToOrange = async (playerId) => {
+        console.log('Moving to Orange:', playerId);
         await moveToTeam(playerId, 'orange');
     };
 
     const handleMoveToGreen = async (playerId) => {
+        console.log('Moving to Green:', playerId);
         await moveToTeam(playerId, 'green');
     };
 
     const handleRemoveFromTeam = async (playerId) => {
+        console.log('Removing from team:', playerId);
         await removeFromTeam(playerId);
     };
 
@@ -686,6 +770,7 @@ function TeamsTab() {
                                     key: player.id,
                                     draggable: true,
                                     onDragStart: (e) => handleDragStart(e, player.id),
+                                    onDragEnd: handleDragEnd,
                                     className: "px-3 py-2 bg-gray-700 text-white rounded-lg cursor-move hover:bg-gray-600 transition-colors select-none"
                                 }, player.name)
                             )
@@ -728,6 +813,8 @@ function App() {
         )
     );
 }
+
+
 
 // Initialize the app
 const rootElement = document.getElementById('root');
